@@ -30,7 +30,7 @@ def add_one():
 @cross_origin()
 def add_many():
     db.todos.insert_many([
-        {'_id': 1, 'title': "todo title one ", 'body': "todo body one "},
+        {'_id': 1, 'title': "todo title one ", 'body': "todo body one    "},
         {'_id': 2, 'title': "todo title two", 'body': "todo body two"},
         {'_id': 3, 'title': "todo title three", 'body': "todo body three"},
         {'_id': 4, 'title': "todo title four", 'body': "todo body four"},
