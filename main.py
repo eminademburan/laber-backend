@@ -26,6 +26,28 @@ def add_one():
     db.todos.insert_one({'title': "todo title", 'body': "todo body"})
     return jsonify(message="success")
 
+@app.route("/add_user/<string:email>/<string:name>/<string:surname>/<string:phone>/<int:age>/<string:region>/<string:language>/<string:password>/<int:invlink>")
+@cross_origin()
+def add_user(email,name,surname,phone,age,region,language,password,invlink):
+    try:
+        db.users.insert_one({'_id': email, 'name': name, 'surname': surname, 'phone': phone,'age': age,'region': region,'language': language, 'password': password,'invlink': invlink})
+        return jsonify(message="success")
+    except:
+        return jsonify(message="failed")
+
+@app.route("/get_user/<string:email>")
+@cross_origin()
+def get_user(email):
+    try:
+        userWithPassword = db.users.find_one({"_id": email})
+        if userWithPassword is None:
+            return jsonify(None)
+        else:
+            return jsonify(userWithPassword)
+    except:
+        return jsonify(message="failed")
+
+
 @app.route("/add_many")
 @cross_origin()
 def add_many():
@@ -37,6 +59,8 @@ def add_many():
         {'_id': 5, 'title': "todo title five", 'body': "todo body five"},
         ])
     return jsonify(message="success")
+
+
 
 @app.route("/get_todo/<int:todoId>")
 @cross_origin()
