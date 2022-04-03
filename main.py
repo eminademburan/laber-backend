@@ -2,6 +2,8 @@ from flask import Flask, jsonify, request
 from flask_restful import Api, Resource, reqparse
 from flask_cors import CORS, cross_origin
 from flask_pymongo import PyMongo
+import requests
+import json
 
 
 import time
@@ -9,11 +11,6 @@ import atexit
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
-#define the function whic will be scheduled
-
-#scheduler = BackgroundScheduler()
-#scheduler.add_job(func=print_date_time, trigger="interval", seconds=20)
-#scheduler.start()
 
 app = Flask(__name__)
 mongo = PyMongo(app, uri="mongodb+srv://ademburan:proje1234@cluster0.9k20l.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
@@ -21,10 +18,40 @@ db = mongo.db
 CORS(app)
 api = Api(app)
 
+#define the function whic will be scheduled
+def auto_distribute_task():
+    result = db.users.find({})
+    names = []
+    ids = []
+    for user in result:
+        names.append(user["_id"])
+    result = db.tweets.find({})
+    for tweet in result:
+        ids.append(tweet["_id"])
+
+    for x in names:
+        for y in ids:
+            query = { 'tweet_id': y, 'responser': x}
+            result = db.answers.find_one(query)
+            if result is None:
+                db.answers.insert_one(
+                    {'tweet_id': y, 'responser': x, 'sentiment': '', 'sarcasm': '',
+                     'status': 'Waiting'})
+
+
+scheduler = BackgroundScheduler()
+scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=10)
+scheduler.start()
+
 @app.route("/message")
 @cross_origin()
 def get_user2():
     return jsonify(message="hello")
+
+@app.route('/form-example', methods=[ 'POST'])
+def form_example():
+    print( request.headers.get("aden"))
+    return jsonify(message="success")
 
 @app.route("/add_user/<string:email>/<string:name>/<string:surname>/<string:phone>/<int:age>/<string:region>/<string:language>/<string:password>/<int:invlink>")
 @cross_origin()
