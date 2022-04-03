@@ -65,7 +65,7 @@ def add_user(email,name,surname,phone,age,region,language,password,invlink):
         return jsonify(message="failed")
 
 
-@app.route("/add_tweet/<int:tweet_id>/<string:text>/<int:noOfLike>/<string:tweetGroup>")
+@app.route("/add_tweet/<string:tweet_id>/<string:text>/<int:noOfLike>/<string:tweetGroup>")
 @cross_origin()
 def add_tweet(tweet_id,text,noOfLike,tweetGroup):
     try:
@@ -74,7 +74,7 @@ def add_tweet(tweet_id,text,noOfLike,tweetGroup):
     except:
         return jsonify(message="failed")
 
-@app.route("/get_tweet/<int:tweet_id>")
+@app.route("/get_tweet/<string:tweet_id>")
 @cross_origin()
 def get_tweet(tweet_id):
     try:
@@ -89,7 +89,7 @@ def get_tweet(tweet_id):
 
 
 
-@app.route("/add_response/<int:tweet_id>/<string:responser>/<string:sentiment>/<string:sarcasm>")
+@app.route("/add_response/<string:tweet_id>/<string:responser>/<string:sentiment>/<string:sarcasm>")
 @cross_origin()
 def add_response(tweet_id, responser, sentiment, sarcasm):
     try:
@@ -120,7 +120,7 @@ def getTweet2(responser):
     except:
         return jsonify(None)
 
-@app.route("/assign_user/<int:tweet_id>/<string:responser>")
+@app.route("/assign_user/<string:tweet_id>/<string:responser>")
 @cross_origin()
 def assignUser(tweet_id, responser):
     try:
@@ -157,7 +157,7 @@ def get_tweets_by_keyword(search_key):
     for tweet_id , tweet in tweet_attributes.items():
         isTweetExist = db.tweets.find_one({"_id": tweet_id})
         if isTweetExist is None:
-            db.tweets.insert_one({'_id': tweet_id, 'text': tweet[0], 'likes': tweet[1], 'owner_id': "ademsan0606@gmail.com"})
+            db.tweets.insert_one({'_id': str(tweet_id), 'text': tweet[0], 'likes': tweet[1], 'owner_id': "ademsan0606@gmail.com"})
     return jsonify(message="true")
 
 
