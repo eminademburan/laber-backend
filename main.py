@@ -21,6 +21,7 @@ api = Api(app)
 
 #define the function whic will be scheduled
 def auto_distribute_task():
+
     result = db.users.find({})
     names = []
     ids = []
@@ -110,6 +111,8 @@ def getTweet2(responser):
         query = { 'responser': responser, 'status': 'Waiting' }
         projection = { '_id':0, 'tweet_id':1}
         tweet = db.answers.find_one( query, projection)
+        print(tweet)
+
         if tweet is None:
             return jsonify(None)
         else:
@@ -150,7 +153,11 @@ def get_user(email):
 @cross_origin()
 def get_tweets_by_keyword(search_key):
     tweet_attributes = scrapper.get_tweets(search_key)
-    print(tweet_attributes)
+
+    for tweet_id , tweet in tweet_attributes.items():
+        isTweetExist = db.tweets.find_one({"_id": tweet_id})
+        if isTweetExist is None:
+            db.tweets.insert_one({'_id': tweet_id, 'text': tweet[0], 'likes': tweet[1], 'owner_id': "ademsan0606@gmail.com"})
     return jsonify(message="true")
 
 
