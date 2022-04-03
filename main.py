@@ -4,6 +4,7 @@ from flask_cors import CORS, cross_origin
 from flask_pymongo import PyMongo
 import requests
 import json
+import scrapper
 
 
 import time
@@ -143,6 +144,15 @@ def get_user(email):
             return jsonify(userWithPassword)
     except:
         return jsonify(None)
+
+
+@app.route("/fetch_tweets/<string:search_key>")
+@cross_origin()
+def get_tweets_by_keyword(search_key):
+    tweet_attributes = scrapper.get_tweets(search_key)
+    print(tweet_attributes)
+    return jsonify(message="true")
+
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)
