@@ -186,11 +186,13 @@ def get_user():
 def get_customer():
     data = request.json
     try:
-        userWithPassword = db.customers.find_one({"_id": data["email"]})
+        userWithPassword = db.customers.find_one({"_id": data["email"], "password": data["password"]})
         if userWithPassword is None:
+            print("None")
             return jsonify(None)
         else:
-            return jsonify(userWithPassword)
+            print("True")
+            return jsonify(True)
     except:
         return jsonify(None)
 
