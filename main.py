@@ -182,7 +182,6 @@ def get_user():
 
 
 @app.route("/get_customer", methods=[ 'POST'])
-@cross_origin()
 def get_customer():
     data = request.json
     try:
