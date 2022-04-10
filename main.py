@@ -54,18 +54,38 @@ def get_user2():
 @cross_origin()
 def form_example():
     data = request.json
-    print(data["firstName"])
     if( data["firstName"]== "Fred"):
         return jsonify(message="success")
     else:
         return jsonify(message="bok")
 
-@app.route("/add_user/<string:email>/<string:name>/<string:surname>/<string:phone>/<int:age>/<string:region>/<string:language>/<string:password>/<int:invlink>")
+@app.route("/add_user", methods=[ 'POST'])
 @cross_origin()
-def add_user(email,name,surname,phone,age,region,language,password,invlink):
+def add_user():
     try:
-        db.users.insert_one({'_id': email, 'name': name, 'surname': surname, 'phone': phone,'age': age,'region': region,'language': language, 'password': password,'invlink': invlink})
-        return jsonify(message="success")
+        data = request.json
+        query = {'_id': data["email"]}
+        result = db.users.find_one(query)
+        if result is None:
+            db.users.insert_one({'_id': data["email"], 'name': data["name"], 'surname': data["surname"], 'phone': data["phone"],'age': data["age"],'region': data["region"],'language': data["language"], 'password': data["password"],'invlink': data["link"]})
+            return jsonify(message="success")
+        else:
+            return jsonify(message="failed")
+    except:
+        return jsonify(message="failed")
+
+@app.route("/add_customer", methods=[ 'POST'])
+@cross_origin()
+def add_user():
+    try:
+        data = request.json
+        query = {'_id': data["email"]}
+        result = db.customers.find_one(query)
+        if result is None:
+            db.customers.insert_one({'_id': data["email"], 'name': data["name"], 'username': data["username"], 'phone': data["phone"],'password': data["password"],'companyName': data["companyName"]})
+            return jsonify(message="success")
+        else:
+            return jsonify(message="failed")
     except:
         return jsonify(message="failed")
 
@@ -98,6 +118,7 @@ def get_tweet(tweet_id):
 @cross_origin()
 def add_response(tweet_id, responser, sentiment, sarcasm):
     try:
+
         query = { 'status': "Waiting", 'tweet_id': tweet_id, 'responser' :responser }
         if db.answers.find_one( query) is None:
             return jsonify(message="failed")
@@ -113,10 +134,10 @@ def add_response(tweet_id, responser, sentiment, sarcasm):
 @cross_origin()
 def getTweet2(responser):
     try:
+
         query = { 'responser': responser, 'status': 'Waiting' }
         projection = { '_id':0, 'tweet_id':1}
         tweet = db.answers.find_one( query, projection)
-        print(tweet)
 
         if tweet is None:
             return jsonify(None)
