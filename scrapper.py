@@ -19,6 +19,6 @@ def get_tweets(search_key):
         #  resim içeren (tweet.media) tweetleri tweet URL'i, tweet sahibi ile beraber kaydet, bu resimler kod çalıştığında figure olarak ekrana yansıyabilsin.
 
         like_and_text = tuple([tweet.content, tweet.likeCount])
-        my_tweets[tweet.id] = like_and_text
+        my_tweets[tweet.id] = tweet.url
 
     return my_tweets

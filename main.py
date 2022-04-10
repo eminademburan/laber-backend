@@ -51,9 +51,14 @@ def get_user2():
     return jsonify(message="hello")
 
 @app.route('/form-example', methods=[ 'POST'])
+@cross_origin()
 def form_example():
-    print( request.headers.get("aden"))
-    return jsonify(message="success")
+    data = request.json
+    print(data["firstName"])
+    if( data["firstName"]== "Fred"):
+        return jsonify(message="success")
+    else:
+        return jsonify(message="bok")
 
 @app.route("/add_user/<string:email>/<string:name>/<string:surname>/<string:phone>/<int:age>/<string:region>/<string:language>/<string:password>/<int:invlink>")
 @cross_origin()
@@ -136,11 +141,12 @@ def assignUser(tweet_id, responser):
         return jsonify(message="failed")
 
 
-@app.route("/get_user/<string:email>")
+@app.route("/get_user", methods=[ 'POST'])
 @cross_origin()
-def get_user(email):
+def get_user():
+    data = request.json
     try:
-        userWithPassword = db.users.find_one({"_id": email})
+        userWithPassword = db.users.find_one({"_id": data["email"]})
         if userWithPassword is None:
             return jsonify(None)
         else:
@@ -157,7 +163,7 @@ def get_tweets_by_keyword(search_key):
     for tweet_id , tweet in tweet_attributes.items():
         isTweetExist = db.tweets.find_one({"_id": tweet_id})
         if isTweetExist is None:
-            db.tweets.insert_one({'_id': str(tweet_id), 'text': tweet[0], 'likes': tweet[1], 'owner_id': "ademsan0606@gmail.com"})
+            db.tweets.insert_one({'_id': str(tweet_id), 'url': tweet, 'owner_id': "ademsan0606@gmail.com"})
     return jsonify(message="true")
 
 
