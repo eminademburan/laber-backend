@@ -19,6 +19,7 @@ db = mongo.db
 CORS(app)
 api = Api(app)
 
+
 #define the function whic will be scheduled
 def auto_distribute_task():
 
@@ -45,10 +46,12 @@ scheduler = BackgroundScheduler()
 scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=10)
 scheduler.start()
 
+
 @app.route("/message")
 @cross_origin()
 def get_user2():
     return jsonify(message="hello")
+
 
 @app.route('/form-example', methods=[ 'POST'])
 @cross_origin()
@@ -58,6 +61,7 @@ def form_example():
         return jsonify(message="success")
     else:
         return jsonify(message="bok")
+
 
 @app.route("/add_user", methods=[ 'POST'])
 @cross_origin()
@@ -74,15 +78,16 @@ def add_user():
     except:
         return jsonify(message="failed")
 
+
 @app.route("/add_customer", methods=[ 'POST'])
 @cross_origin()
-def add_user():
+def add_customer():
     try:
         data = request.json
         query = {'_id': data["email"]}
         result = db.customers.find_one(query)
         if result is None:
-            db.customers.insert_one({'_id': data["email"], 'name': data["name"], 'username': data["username"], 'phone': data["phone"],'password': data["password"],'companyName': data["companyName"]})
+            db.customers.insert_one({'_id': data["email"], 'name': data["name"], 'username': data["username"], 'phone': data["phone"], 'password': data["password"], 'companyName': data["companyName"]})
             return jsonify(message="success")
         else:
             return jsonify(message="failed")
@@ -168,6 +173,20 @@ def get_user():
     data = request.json
     try:
         userWithPassword = db.users.find_one({"_id": data["email"]})
+        if userWithPassword is None:
+            return jsonify(None)
+        else:
+            return jsonify(userWithPassword)
+    except:
+        return jsonify(None)
+
+
+@app.route("/get_customer", methods=[ 'POST'])
+@cross_origin()
+def get_customer():
+    data = request.json
+    try:
+        userWithPassword = db.customers.find_one({"_id": data["email"]})
         if userWithPassword is None:
             return jsonify(None)
         else:
