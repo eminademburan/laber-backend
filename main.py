@@ -181,11 +181,13 @@ def get_user():
         return jsonify(None)
 
 
-@app.route("/get_customer", methods=[ 'POST'])
-def get_customer():
-    data = request.json
+@app.route("/get_customer/<string:email>/<string:password>")
+@cross_origin()
+def get_customer(email, password):
+
     try:
-        userWithPassword = db.customers.find_one({"_id": data["email"], "password": data["password"]})
+        print("buraya geldim")
+        userWithPassword = db.customers.find_one({"_id": email, "password": password})
         if userWithPassword is None:
             print("None")
             return jsonify(None)
