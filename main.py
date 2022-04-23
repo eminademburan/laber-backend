@@ -95,6 +95,50 @@ def add_customer():
         return jsonify(message="failed")
 
 
+@app.route("/add_task", methods=[ 'POST'])
+@cross_origin()
+def add_task():
+    data = request.json
+    try:
+        task_find = db.tasks.find_one({"_id": data["taskName"]})
+        print(data)
+        if task_find is None:
+            print("inside if")
+            insert = db.tasks.insert_one({
+                "_id": data["taskName"],
+                'customerEmail': data['customerEmail'],
+                'keywords': data['keywords'],
+                'hashtags': data['hashtags'],
+                'sentimentMin': data['minSentiment'],
+                'sentimentMax': data['maxSentiment'],
+                'sarcasmMax': data['maxSarcasm'],
+                'sarcasmMin': data['minSarcasm'],
+                'standMetric': data['standMetric'],
+                'isBot': data['isBot'],
+                'isTwitterSelected': data['isTwitterSelected'],
+                'isFacebookSelected': data['isFacebookSelected'],
+                'startDate': data['startDate'],
+                'endDate': data['endDate'],
+                'minAge': data['minAge'],
+                'maxAge': data['maxAge'],
+                'isFemale': data['isFemale'],
+                'isMale': data['isMale'],
+                'isTransgender': data['isTransgender'],
+                'isGenderNeutral': data['isGenderNeutral'],
+                'isNonBinary': data['isNonBinary'],
+                'isAny': data['isAny'],
+                'languages': data['languages']
+            })
+            print(insert)
+            print("after insert")
+            return jsonify(None)
+        else:
+            return jsonify(task_find)
+    except:
+        return jsonify(None)
+
+
+
 @app.route("/add_tweet/<string:tweet_id>/<string:text>/<int:noOfLike>/<string:tweetGroup>")
 @cross_origin()
 def add_tweet(tweet_id,text,noOfLike,tweetGroup):
@@ -150,6 +194,7 @@ def getTweet2(responser):
             return jsonify(tweet)
     except:
         return jsonify(None)
+
 
 @app.route("/assign_user/<string:tweet_id>/<string:responser>")
 @cross_origin()
