@@ -6,40 +6,45 @@ import requests
 import json
 import scrapper
 
-
 import time
 import atexit
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
-
 app = Flask(__name__)
-mongo = PyMongo(app, uri="mongodb+srv://ademburan:proje1234@cluster0.9k20l.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
+mongo = PyMongo(app,
+                uri="mongodb+srv://ademburan:proje1234@cluster0.9k20l.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
 db = mongo.db
 CORS(app)
 api = Api(app)
 
 
-#define the function whic will be scheduled
+# define the function whic will be scheduled
 def auto_distribute_task():
-
-    result = db.users.find({})
+    all_users = db.users.find({})
     names = []
     ids = []
-    for user in result:
+    for user in all_users:
         names.append(user["_id"])
-    result = db.tweets.find({})
-    for tweet in result:
-        ids.append(tweet["_id"])
+    all_tweets = db.tweets.find({})
+    for tweet in all_tweets:
+        ids.append(tuple(tweet["_id"], tweet['owner_id'], tweet['task_id']))
 
     for x in names:
         for y in ids:
-            query = { 'tweet_id': y, 'responser': x}
+            query = {'tweet_id': y[0], 'responser': x, 'owner_id': y[1], 'task_id': y[2]}
             result = db.answers.find_one(query)
-            if result is None:
+            query2 = {'customerEmail': y[1], '_id': y[0]}
+            query_result = db.tasks.find_one(query2)
+            responser_age_query_result = db.users.find_one({'_id': x})
+            user_age = responser_age_query_result['age']
+            min_age = query_result['minAge']
+            max_age = query_result['maxAge']
+            if result is None and max_age >= user_age >= min_age:
                 db.answers.insert_one(
-                    {'tweet_id': y, 'responser': x, 'sentiment': '', 'sarcasm': '',
-                     'status': 'Waiting'})
+                    {'tweet_id': y, 'responser': x, 'response1': '', 'response2': '',
+                     'response3': '', 'response4': '',
+                     'owner_id': y[1], 'task_id': y[2], 'status': 'Waiting'})
 
 
 scheduler = BackgroundScheduler()
@@ -53,17 +58,17 @@ def get_user2():
     return jsonify(message="hello")
 
 
-@app.route('/form-example', methods=[ 'POST'])
+@app.route('/form-example', methods=['POST'])
 @cross_origin()
 def form_example():
     data = request.json
-    if( data["firstName"]== "Fred"):
+    if (data["firstName"] == "Fred"):
         return jsonify(message="success")
     else:
         return jsonify(message="bok")
 
 
-@app.route("/add_user", methods=[ 'POST'])
+@app.route("/add_user", methods=['POST'])
 @cross_origin()
 def add_user():
     try:
@@ -71,7 +76,10 @@ def add_user():
         query = {'_id': data["email"]}
         result = db.users.find_one(query)
         if result is None:
-            db.users.insert_one({'_id': data["email"], 'name': data["name"], 'surname': data["surname"], 'phone': data["phone"],'age': data["age"],'region': data["region"],'language': data["language"], 'password': data["password"],'invlink': data["link"]})
+            db.users.insert_one(
+                {'_id': data["email"], 'name': data["name"], 'surname': data["surname"], 'phone': data["phone"],
+                 'age': data["age"], 'region': data["region"], 'language': data["language"],
+                 'password': data["password"], 'invlink': data["link"]})
             return jsonify(message="success")
         else:
             return jsonify(message="failed")
@@ -79,7 +87,7 @@ def add_user():
         return jsonify(message="failed")
 
 
-@app.route("/add_customer", methods=[ 'POST'])
+@app.route("/add_customer", methods=['POST'])
 @cross_origin()
 def add_customer():
     try:
@@ -87,7 +95,9 @@ def add_customer():
         query = {'_id': data["email"]}
         result = db.customers.find_one(query)
         if result is None:
-            db.customers.insert_one({'_id': data["email"], 'name': data["name"], 'username': data["username"], 'phone': data["phone"], 'password': data["password"], 'companyName': data["companyName"]})
+            db.customers.insert_one(
+                {'_id': data["email"], 'name': data["name"], 'username': data["username"], 'phone': data["phone"],
+                 'password': data["password"], 'companyName': data["companyName"]})
             return jsonify(message="success")
         else:
             return jsonify(message="failed")
@@ -95,12 +105,12 @@ def add_customer():
         return jsonify(message="failed")
 
 
-@app.route("/add_task", methods=[ 'POST'])
+@app.route("/add_task", methods=['POST'])
 @cross_origin()
 def add_task():
     data = request.json
     try:
-        task_find = db.tasks.find_one({"_id": data["taskName"]})
+        task_find = db.tasks.find_one({"_id": data["taskName"], "customerEmail": data["customerEmail"]})
         print(data)
         if task_find is None:
             print("inside if")
@@ -109,12 +119,8 @@ def add_task():
                 'customerEmail': data['customerEmail'],
                 'keywords': data['keywords'],
                 'hashtags': data['hashtags'],
-                'sentimentMin': data['minSentiment'],
-                'sentimentMax': data['maxSentiment'],
-                'sarcasmMax': data['maxSarcasm'],
-                'sarcasmMin': data['minSarcasm'],
-                'standMetric': data['standMetric'],
-                'isBot': data['isBot'],
+                'scalarMetrics': data['scalarMetrics'],
+                'nonScalarMetrics': data['nonScalarMetrics'],
                 'isTwitterSelected': data['isTwitterSelected'],
                 'isFacebookSelected': data['isFacebookSelected'],
                 'startDate': data['startDate'],
@@ -129,8 +135,9 @@ def add_task():
                 'isAny': data['isAny'],
                 'languages': data['languages']
             })
-            print(insert)
             print("after insert")
+            search_keys = [*data['keywords'], *data['hashtags']]
+            get_tweets_by_keyword_and_assign(search_keys, data['customerEmail'], data['taskName'])
             return jsonify(None)
         else:
             return jsonify(task_find)
@@ -138,15 +145,15 @@ def add_task():
         return jsonify(None)
 
 
-
 @app.route("/add_tweet/<string:tweet_id>/<string:text>/<int:noOfLike>/<string:tweetGroup>")
 @cross_origin()
-def add_tweet(tweet_id,text,noOfLike,tweetGroup):
+def add_tweet(tweet_id, text, noOfLike, tweetGroup):
     try:
-        db.tweets.insert_one({ '_id': tweet_id, 'text': text, 'likes': noOfLike, 'owner_id': tweetGroup })
+        db.tweets.insert_one({'_id': tweet_id, 'text': text, 'likes': noOfLike, 'owner_id': tweetGroup})
         return jsonify(message="success")
     except:
         return jsonify(message="failed")
+
 
 @app.route("/get_tweet/<string:tweet_id>")
 @cross_origin()
@@ -162,31 +169,30 @@ def get_tweet(tweet_id):
         return jsonify(None)
 
 
-
 @app.route("/add_response/<string:tweet_id>/<string:responser>/<string:sentiment>/<string:sarcasm>")
 @cross_origin()
 def add_response(tweet_id, responser, sentiment, sarcasm):
     try:
 
-        query = { 'status': "Waiting", 'tweet_id': tweet_id, 'responser' :responser }
-        if db.answers.find_one( query) is None:
+        query = {'status': "Waiting", 'tweet_id': tweet_id, 'responser': responser}
+        if db.answers.find_one(query) is None:
             return jsonify(message="failed")
         else:
-            query = { 'tweet_id': tweet_id, 'responser' : responser }
-            new_values = { "$set": { 'sentiment': sentiment, 'sarcasm': sarcasm, 'status': 'Answered'}}
-            db.answers.update_one( query, new_values)
+            query = {'tweet_id': tweet_id, 'responser': responser}
+            new_values = {"$set": {'sentiment': sentiment, 'sarcasm': sarcasm, 'status': 'Answered'}}
+            db.answers.update_one(query, new_values)
             return jsonify(message="true")
     except:
         return jsonify(message="failed")
+
 
 @app.route("/get_tweet_to_answer/<string:responser>")
 @cross_origin()
 def getTweet2(responser):
     try:
-
-        query = { 'responser': responser, 'status': 'Waiting' }
-        projection = { '_id':0, 'tweet_id':1}
-        tweet = db.answers.find_one( query, projection)
+        query = {'responser': responser, 'status': 'Waiting'}
+        projection = {'_id': 0, 'tweet_id': 1}
+        tweet = db.answers.find_one(query, projection)
 
         if tweet is None:
             return jsonify(None)
@@ -200,8 +206,8 @@ def getTweet2(responser):
 @cross_origin()
 def assignUser(tweet_id, responser):
     try:
-        query = { 'tweet_id': tweet_id, 'responser' : responser }
-        if db.answers.find_one( query) is not None:
+        query = {'tweet_id': tweet_id, 'responser': responser}
+        if db.answers.find_one(query) is not None:
             return jsonify(message="failed")
         else:
             db.answers.insert_one(
@@ -212,7 +218,7 @@ def assignUser(tweet_id, responser):
         return jsonify(message="failed")
 
 
-@app.route("/get_user", methods=[ 'POST'])
+@app.route("/get_user", methods=['POST'])
 @cross_origin()
 def get_user():
     data = request.json
@@ -229,7 +235,6 @@ def get_user():
 @app.route("/get_customer/<string:email>/<string:password>")
 @cross_origin()
 def get_customer(email, password):
-
     try:
         print("buraya geldim")
         userWithPassword = db.customers.find_one({"_id": email, "password": password})
@@ -248,13 +253,22 @@ def get_customer(email, password):
 def get_tweets_by_keyword(search_key):
     tweet_attributes = scrapper.get_tweets(search_key)
 
-    for tweet_id , tweet in tweet_attributes.items():
+    for tweet_id, tweet in tweet_attributes.items():
         isTweetExist = db.tweets.find_one({"_id": tweet_id})
         if isTweetExist is None:
             db.tweets.insert_one({'_id': str(tweet_id), 'url': tweet, 'owner_id': "ademsan0606@gmail.com"})
     return jsonify(message="true")
 
 
+def get_tweets_by_keyword_and_assign(search_key, owner_id, task_id):
+    for key in search_key:
+        tweet_attributes = scrapper.get_tweets(key)
+
+        for tweet_id, tweet in tweet_attributes.items():
+            is_tweet_exist = db.tweets.find_one({"_id": tweet_id, 'owner_id': owner_id, 'task_id': task_id})
+            if is_tweet_exist is None:
+                db.tweets.insert_one({'_id': str(tweet_id), 'url': tweet, 'owner_id': owner_id, 'task_id': task_id})
+
+
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)
-
