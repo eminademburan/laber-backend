@@ -28,27 +28,27 @@ def auto_distribute_task():
         names.append(user["_id"])
     all_tweets = db.tweets.find({})
     for tweet in all_tweets:
-        ids.append(tuple(tweet["_id"], tweet['owner_id'], tweet['task_id']))
+        ids.append(tuple([tweet["_id"], tweet['owner_id'], tweet['task_id']]))
 
     for x in names:
         for y in ids:
+
             query = {'tweet_id': y[0], 'responser': x, 'owner_id': y[1], 'task_id': y[2]}
             result = db.answers.find_one(query)
-            query2 = {'customerEmail': y[1], '_id': y[0]}
+            query2 = {'customerEmail': y[1], '_id': y[2]}
             query_result = db.tasks.find_one(query2)
             responser_age_query_result = db.users.find_one({'_id': x})
             user_age = responser_age_query_result['age']
             min_age = query_result['minAge']
             max_age = query_result['maxAge']
-            if result is None and max_age >= user_age >= min_age:
+            if result is None and int(max_age) >= int(user_age) >= int(min_age):
                 db.answers.insert_one(
-                    {'tweet_id': y, 'responser': x, 'response1': '', 'response2': '',
-                     'response3': '', 'response4': '',
+                    {'tweet_id': y[0], 'responser': x,
                      'owner_id': y[1], 'task_id': y[2], 'status': 'Waiting'})
 
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=10)
+scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=60)
 scheduler.start()
 
 
@@ -110,8 +110,7 @@ def add_customer():
 def add_task():
     data = request.json
     try:
-        task_find = db.tasks.find_one({"_id": data["taskName"], "customerEmail": data["customerEmail"]})
-        print(data)
+        task_find = db.tasks.find_one({"_id": data["taskName"],"customerEmail" :data['customerEmail']})
         if task_find is None:
             print("inside if")
             insert = db.tasks.insert_one({
@@ -155,11 +154,11 @@ def add_tweet(tweet_id, text, noOfLike, tweetGroup):
         return jsonify(message="failed")
 
 
-@app.route("/get_tweet/<string:tweet_id>")
+@app.route("/get_tweet/<string:tweet_id>/<string:task_id>")
 @cross_origin()
-def get_tweet(tweet_id):
+def get_tweet(tweet_id, task_id):
     try:
-        query = {'_id': tweet_id}
+        query = {'_id': tweet_id, 'task_id': task_id}
         tweet = db.tweets.find_one(query)
         if tweet is None:
             return jsonify(None)
@@ -168,18 +167,32 @@ def get_tweet(tweet_id):
     except:
         return jsonify(None)
 
-
-@app.route("/add_response/<string:tweet_id>/<string:responser>/<string:sentiment>/<string:sarcasm>")
+@app.route("/get_task/<string:task_id>")
 @cross_origin()
-def add_response(tweet_id, responser, sentiment, sarcasm):
+def get_task(task_id):
+    print(task_id)
+    try:
+        query = {'_id': task_id}
+        task = db.tasks.find_one(query)
+        if task is None:
+            return jsonify(None)
+        else:
+            return jsonify(task)
+    except:
+        return jsonify(None)
+
+@app.route("/add_response", methods=['POST'])
+@cross_origin()
+def add_response():
+    data = request.json
     try:
 
-        query = {'status': "Waiting", 'tweet_id': tweet_id, 'responser': responser}
+        query = {'status': "Waiting", 'tweet_id': data["tweet_id"], 'responser': data["mail"], 'task_id' : data["task_id"]}
         if db.answers.find_one(query) is None:
             return jsonify(message="failed")
         else:
-            query = {'tweet_id': tweet_id, 'responser': responser}
-            new_values = {"$set": {'sentiment': sentiment, 'sarcasm': sarcasm, 'status': 'Answered'}}
+            query = {'tweet_id': data["tweet_id"], 'responser': data["mail"], 'task_id' : data["task_id"]}
+            new_values = {"$set": {'answers': data["answers"], 'status': 'Answered'}}
             db.answers.update_one(query, new_values)
             return jsonify(message="true")
     except:
@@ -191,7 +204,7 @@ def add_response(tweet_id, responser, sentiment, sarcasm):
 def getTweet2(responser):
     try:
         query = {'responser': responser, 'status': 'Waiting'}
-        projection = {'_id': 0, 'tweet_id': 1}
+        projection = {'_id': 0, 'tweet_id': 1, "task_id" : 1 }
         tweet = db.answers.find_one(query, projection)
 
         if tweet is None:
