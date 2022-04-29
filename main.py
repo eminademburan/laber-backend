@@ -105,6 +105,24 @@ def add_customer():
         return jsonify(message="failed")
 
 
+@app.route("/get_customer", methods=['POST'])
+@cross_origin()
+def get_customer():
+    data = request.json
+    try:
+        print("buraya geldim")
+        print(data)
+        userWithPassword = db.customers.find_one({"_id": data["email"], "password": data["password"]})
+        if userWithPassword is None:
+            print("None")
+            return jsonify(None)
+        else:
+            print("True")
+            return jsonify(True)
+    except:
+        return jsonify(None)
+
+
 @app.route("/add_task", methods=['POST'])
 @cross_origin()
 def add_task():
@@ -245,30 +263,14 @@ def get_user():
         return jsonify(None)
 
 
-@app.route("/get_customer/<string:email>/<string:password>")
-@cross_origin()
-def get_customer(email, password):
-    try:
-        print("buraya geldim")
-        userWithPassword = db.customers.find_one({"_id": email, "password": password})
-        if userWithPassword is None:
-            print("None")
-            return jsonify(None)
-        else:
-            print("True")
-            return jsonify(True)
-    except:
-        return jsonify(None)
-
-
 @app.route("/fetch_tweets/<string:search_key>")
 @cross_origin()
 def get_tweets_by_keyword(search_key):
     tweet_attributes = scrapper.get_tweets(search_key)
 
     for tweet_id, tweet in tweet_attributes.items():
-        isTweetExist = db.tweets.find_one({"_id": tweet_id})
-        if isTweetExist is None:
+        is_tweet_exist = db.tweets.find_one({"_id": tweet_id})
+        if is_tweet_exist is None:
             db.tweets.insert_one({'_id': str(tweet_id), 'url': tweet, 'owner_id': "ademsan0606@gmail.com"})
     return jsonify(message="true")
 
