@@ -165,6 +165,11 @@ def get_customer():
 @cross_origin()
 def add_task():
     data = request.json
+
+    # get who is making a request
+    # requestor_email = get_jwt_identity()
+    # print("request owner ", requestor_email)
+
     try:
         task_find = db.tasks.find_one({"_id": data["taskName"], "customerEmail": data['customerEmail']})
         if task_find is None:
