@@ -2,16 +2,24 @@ from flask import Flask, jsonify, request
 from flask_restful import Api, Resource, reqparse
 from flask_cors import CORS, cross_origin
 from flask_pymongo import PyMongo
+from flask_jwt_extended import create_access_token
+from flask_jwt_extended import get_jwt_identity
+from flask_jwt_extended import jwt_required
+from flask_jwt_extended import JWTManager
+from dotenv import load_dotenv
+from apscheduler.schedulers.background import BackgroundScheduler
+import os
 import requests
 import json
 import scrapper
-
 import time
 import atexit
 
-from apscheduler.schedulers.background import BackgroundScheduler
 
 app = Flask(__name__)
+load_dotenv()
+app.config["JWT_SECRET_KEY"] = os.getenv('JWT_SECRET_KEY')
+jwt = JWTManager(app)
 mongo = PyMongo(app,
                 uri="mongodb+srv://ademburan:proje1234@cluster0.9k20l.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
 db = mongo.db
@@ -105,22 +113,51 @@ def add_customer():
         return jsonify(message="failed")
 
 
+# Create a route to authenticate your users and return JWTs. The
+# create_access_token() function is used to actually generate the JWT.
 @app.route("/get_customer", methods=['POST'])
 @cross_origin()
 def get_customer():
+    email = request.json.get("email", None)
+    password = request.json.get("password", None)
+    # if email != "test" or password != "test":
+    #     return jsonify({"msg": "Bad username or password"}), 401
+
     data = request.json
     try:
         print("buraya geldim")
         print(data)
-        userWithPassword = db.customers.find_one({"_id": data["email"], "password": data["password"]})
-        if userWithPassword is None:
-            print("None")
+        user = db.customers.find_one({"_id": data["email"], "password": data["password"]})
+        if user is None:
+            print("User does not exist")
             return jsonify(None)
         else:
-            print("True")
-            return jsonify(True)
+            print("User exists")
+            access_token = create_access_token(identity=email)
+            print("access_token: ", access_token)
+            return jsonify(access_token=access_token)
+            # return jsonify(True)
     except:
         return jsonify(None)
+
+
+
+# @app.route("/get_customer", methods=['POST'])
+# @cross_origin()
+# def get_customer():
+#     data = request.json
+#     try:
+#         print("buraya geldim")
+#         print(data)
+#         userWithPassword = db.customers.find_one({"_id": data["email"], "password": data["password"]})
+#         if userWithPassword is None:
+#             print("None")
+#             return jsonify(None)
+#         else:
+#             print("True")
+#             return jsonify(True)
+#     except:
+#         return jsonify(None)
 
 
 @app.route("/add_task", methods=['POST'])
@@ -128,10 +165,10 @@ def get_customer():
 def add_task():
     data = request.json
     try:
-        task_find = db.tasks.find_one({"_id": data["taskName"],"customerEmail" :data['customerEmail']})
+        task_find = db.tasks.find_one({"_id": data["taskName"], "customerEmail": data['customerEmail']})
         if task_find is None:
             print("inside if")
-            insert = db.tasks.insert_one({
+            db.tasks.insert_one({
                 "_id": data["taskName"],
                 'customerEmail': data['customerEmail'],
                 'keywords': data['keywords'],
