@@ -15,6 +15,8 @@ import scrapper
 import time
 import atexit
 
+# https://www.pythonfixing.com/2022/02/fixed-how-to-redirect-if-jwt-is-not.html
+
 
 app = Flask(__name__)
 load_dotenv()
@@ -141,7 +143,6 @@ def get_customer():
         return jsonify(None)
 
 
-
 # @app.route("/get_customer", methods=['POST'])
 # @cross_origin()
 # def get_customer():
@@ -159,8 +160,8 @@ def get_customer():
 #     except:
 #         return jsonify(None)
 
-
 @app.route("/add_task", methods=['POST'])
+@jwt_required()
 @cross_origin()
 def add_task():
     data = request.json
