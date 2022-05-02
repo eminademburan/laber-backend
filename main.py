@@ -49,8 +49,9 @@ def auto_distribute_task():
             query_result = db.tasks.find_one(query2)
             responser_age_query_result = db.users.find_one({'_id': x})
             user_age = responser_age_query_result['age']
-            min_age = query_result['minAge']
-            max_age = query_result['maxAge']
+            if query_result is not None:
+                min_age = query_result['minAge']
+                max_age = query_result['maxAge']
             if result is None and int(max_age) >= int(user_age) >= int(min_age):
                 db.answers.insert_one(
                     {'tweet_id': y[0], 'responser': x,
