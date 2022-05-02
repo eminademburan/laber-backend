@@ -170,7 +170,10 @@ def add_task():
     # get who is making a request
     # requestor_email = get_jwt_identity()
     # print("request owner ", requestor_email)
+    print("data: ", data)
 
+    # TODO: check whether all the required fields are supplied by the customer
+    
     try:
         task_find = db.tasks.find_one({"_id": data["taskName"], "customerEmail": data['customerEmail']})
         if task_find is None:
@@ -193,7 +196,6 @@ def add_task():
                 'isTransgender': data['isTransgender'],
                 'isGenderNeutral': data['isGenderNeutral'],
                 'isNonBinary': data['isNonBinary'],
-                'isAny': data['isAny'],
                 'languages': data['languages']
             })
             print("after insert")
@@ -201,6 +203,7 @@ def add_task():
             get_tweets_by_keyword_and_assign(search_keys, data['customerEmail'], data['taskName'])
             return jsonify(None)
         else:
+            print("task could not be created!")
             return jsonify(task_find)
     except:
         return jsonify(None)
