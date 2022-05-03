@@ -2,23 +2,26 @@ from flask import Flask, jsonify, request
 from flask_restful import Api, Resource, reqparse
 from flask_cors import CORS, cross_origin
 from flask_pymongo import PyMongo
-from datetime import  datetime
+from flask_jwt_extended import create_access_token
+from flask_jwt_extended import get_jwt_identity
+from flask_jwt_extended import jwt_required
+from flask_jwt_extended import JWTManager
+from dotenv import load_dotenv
+from apscheduler.schedulers.background import BackgroundScheduler
+import os
 import requests
 import json
 import scrapper
-
 import time
 import atexit
 
-import voicechat
+# https://www.pythonfixing.com/2022/02/fixed-how-to-redirect-if-jwt-is-not.html
 
-from apscheduler.schedulers.background import BackgroundScheduler
-
-from utils import date_diff_secs
-
-from voicechat.tokenizer import generate_token
 
 application = Flask(__name__)
+load_dotenv()
+application.config["JWT_SECRET_KEY"] = os.getenv('JWT_SECRET_KEY')
+jwt = JWTManager(application)
 mongo = PyMongo(application,
                 uri="mongodb+srv://ademburan:proje1234@cluster0.9k20l.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
 db = mongo.db
@@ -26,7 +29,7 @@ CORS(application)
 api = Api(application)
 
 
-# define the function which will be scheduled
+# define the function whic will be scheduled
 def auto_distribute_task():
     all_users = db.users.find({})
     names = []
@@ -39,17 +42,25 @@ def auto_distribute_task():
 
     for x in names:
         for y in ids:
+
             query = {'tweet_id': y[0], 'responser': x, 'owner_id': y[1], 'task_id': y[2]}
             result = db.answers.find_one(query)
-            if result is None:
+            query2 = {'customerEmail': y[1], '_id': y[2]}
+            query_result = db.tasks.find_one(query2)
+            responser_age_query_result = db.users.find_one({'_id': x})
+            user_age = responser_age_query_result['age']
+            if query_result is not None:
+                min_age = query_result['minAge']
+                max_age = query_result['maxAge']
+            if result is None and int(max_age) >= int(user_age) >= int(min_age):
                 db.answers.insert_one(
                     {'tweet_id': y[0], 'responser': x,
                      'owner_id': y[1], 'task_id': y[2], 'status': 'Waiting'})
 
 
-#scheduler = BackgroundScheduler()
-#scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=60)
-#scheduler.start()
+scheduler = BackgroundScheduler()
+scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=60)
+scheduler.start()
 
 
 @application.route("/message")
@@ -105,33 +116,69 @@ def add_customer():
         return jsonify(message="failed")
 
 
+# Create a route to authenticate your users and return JWTs. The
+# create_access_token() function is used to actually generate the JWT.
 @application.route("/get_customer", methods=['POST'])
 @cross_origin()
 def get_customer():
+    email = request.json.get("email", None)
+    password = request.json.get("password", None)
+    # if email != "test" or password != "test":
+    #     return jsonify({"msg": "Bad username or password"}), 401
+
     data = request.json
     try:
         print("buraya geldim")
         print(data)
-        userWithPassword = db.customers.find_one({"_id": data["email"], "password": data["password"]})
-        if userWithPassword is None:
-            print("None")
+        user = db.customers.find_one({"_id": data["email"], "password": data["password"]})
+        if user is None:
+            print("User does not exist")
             return jsonify(None)
         else:
-            print("True")
-            return jsonify(True)
+            print("User exists")
+            access_token = create_access_token(identity=email)
+            print("access_token: ", access_token)
+            return jsonify(access_token=access_token)
+            # return jsonify(True)
     except:
         return jsonify(None)
 
 
+# @application.route("/get_customer", methods=['POST'])
+# @cross_origin()
+# def get_customer():
+#     data = request.json
+#     try:
+#         print("buraya geldim")
+#         print(data)
+#         userWithPassword = db.customers.find_one({"_id": data["email"], "password": data["password"]})
+#         if userWithPassword is None:
+#             print("None")
+#             return jsonify(None)
+#         else:
+#             print("True")
+#             return jsonify(True)
+#     except:
+#         return jsonify(None)
+
 @application.route("/add_task", methods=['POST'])
+@jwt_required()
 @cross_origin()
 def add_task():
     data = request.json
+
+    # get who is making a request
+    # requestor_email = get_jwt_identity()
+    # print("request owner ", requestor_email)
+    print("data: ", data)
+
+    # TODO: check whether all the required fields are supplied by the customer
+
     try:
-        task_find = db.tasks.find_one({"_id": data["taskName"],"customerEmail" :data['customerEmail']})
+        task_find = db.tasks.find_one({"_id": data["taskName"], "customerEmail": data['customerEmail']})
         if task_find is None:
             print("inside if")
-            insert = db.tasks.insert_one({
+            db.tasks.insert_one({
                 "_id": data["taskName"],
                 'customerEmail': data['customerEmail'],
                 'keywords': data['keywords'],
@@ -149,7 +196,6 @@ def add_task():
                 'isTransgender': data['isTransgender'],
                 'isGenderNeutral': data['isGenderNeutral'],
                 'isNonBinary': data['isNonBinary'],
-                'isAny': data['isAny'],
                 'languages': data['languages']
             })
             print("after insert")
@@ -157,6 +203,7 @@ def add_task():
             get_tweets_by_keyword_and_assign(search_keys, data['customerEmail'], data['taskName'])
             return jsonify(None)
         else:
+            print("task could not be created!")
             return jsonify(task_find)
     except:
         return jsonify(None)
@@ -185,7 +232,6 @@ def get_tweet(tweet_id, task_id):
     except:
         return jsonify(None)
 
-
 @application.route("/get_task/<string:task_id>")
 @cross_origin()
 def get_task(task_id):
@@ -199,7 +245,6 @@ def get_task(task_id):
             return jsonify(task)
     except:
         return jsonify(None)
-
 
 @application.route("/add_response", methods=['POST'])
 @cross_origin()
@@ -219,52 +264,20 @@ def add_response():
         return jsonify(message="failed")
 
 
-# creates an agora channel with given name
-# adds the necessary documents to the voicechats collection for the given mails
-def assign_voicechat(channel_name, mails):
-    channel_name = str(channel_name)
-    token = generate_token(channel_name)
-    dt = datetime.now()
-    q_list = [{'name': channel_name, 'token': token, 'mail': mail, 'date': dt} for mail in mails]
-    db.voicechats.insert_many(q_list)
-
-
-# clears the channels older than 5 minutes from the collection
-def clear_voicechat():
-    projection = {'_id': 1, 'token': 0, 'mail': 0, 'date': 1}
-    res = db.voicechats.find({}, projection)
-    dt = datetime.now()
-    to_delete = [{'_id': _id} for _id in res if date_diff_secs(res.date, dt) > 300]
-    db.voicechats.delete_many(to_delete)
-
-# checks if there is a pending voicechat for a given responser, if there is returns channel name and token
-@application.route("/check_voicechat/<string:responser>")
-@cross_origin()
-def check_voicechat(responser):
-    query = {'mail': responser}
-    projection = {'_id': 0, 'name': 1, 'token': 1}
-    channel = db.voicechats.find_one(query, projection)
-    if channel is None:
-        return jsonify(None)
-    else:
-        return jsonify(channel)
-
-
-
-
 @application.route("/get_tweet_to_answer/<string:responser>")
 @cross_origin()
 def getTweet2(responser):
-    query = {'responser': responser, 'status': 'Waiting'}
-    projection = {'_id': 0, 'tweet_id': 1, "task_id" : 1 }
-    tweet = db.answers.find_one(query, projection)
+    try:
+        query = {'responser': responser, 'status': 'Waiting'}
+        projection = {'_id': 0, 'tweet_id': 1, "task_id" : 1 }
+        tweet = db.answers.find_one(query, projection)
 
-    if tweet is None:
+        if tweet is None:
+            return jsonify(None)
+        else:
+            return jsonify(tweet)
+    except:
         return jsonify(None)
-    else:
-        assign_voicechat(tweet['tweet_id'], [responser])
-        return jsonify(tweet)
-
 
 
 @application.route("/assign_user/<string:tweet_id>/<string:responser>")
