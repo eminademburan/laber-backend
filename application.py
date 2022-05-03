@@ -7,7 +7,6 @@ from flask_jwt_extended import get_jwt_identity
 from flask_jwt_extended import jwt_required
 from flask_jwt_extended import JWTManager
 from dotenv import load_dotenv
-from apscheduler.schedulers.background import BackgroundScheduler
 import os
 import requests
 import json
@@ -15,8 +14,13 @@ import scrapper
 import time
 import atexit
 
-# https://www.pythonfixing.com/2022/02/fixed-how-to-redirect-if-jwt-is-not.html
+import voicechat
 
+from apscheduler.schedulers.background import BackgroundScheduler
+
+from utils import date_diff_secs
+
+from voicechat.tokenizer import generate_token
 
 application = Flask(__name__)
 load_dotenv()
@@ -29,7 +33,7 @@ CORS(application)
 api = Api(application)
 
 
-# define the function whic will be scheduled
+# define the function which will be scheduled
 def auto_distribute_task():
     all_users = db.users.find({})
     names = []
@@ -264,20 +268,52 @@ def add_response():
         return jsonify(message="failed")
 
 
+# creates an agora channel with given name
+# adds the necessary documents to the voicechats collection for the given mails
+def assign_voicechat(channel_name, mails):
+    channel_name = str(channel_name)
+    token = generate_token(channel_name)
+    dt = datetime.now()
+    q_list = [{'name': channel_name, 'token': token, 'mail': mail, 'date': dt} for mail in mails]
+    db.voicechats.insert_many(q_list)
+
+
+# clears the channels older than 5 minutes from the collection
+def clear_voicechat():
+    projection = {'_id': 1, 'token': 0, 'mail': 0, 'date': 1}
+    res = db.voicechats.find({}, projection)
+    dt = datetime.now()
+    to_delete = [{'_id': _id} for _id in res if date_diff_secs(res.date, dt) > 300]
+    db.voicechats.delete_many(to_delete)
+
+# checks if there is a pending voicechat for a given responser, if there is returns channel name and token
+@application.route("/check_voicechat/<string:responser>")
+@cross_origin()
+def check_voicechat(responser):
+    query = {'mail': responser}
+    projection = {'_id': 0, 'name': 1, 'token': 1}
+    channel = db.voicechats.find_one(query, projection)
+    if channel is None:
+        return jsonify(None)
+    else:
+        return jsonify(channel)
+
+
+
+
 @application.route("/get_tweet_to_answer/<string:responser>")
 @cross_origin()
 def getTweet2(responser):
-    try:
-        query = {'responser': responser, 'status': 'Waiting'}
-        projection = {'_id': 0, 'tweet_id': 1, "task_id" : 1 }
-        tweet = db.answers.find_one(query, projection)
+    query = {'responser': responser, 'status': 'Waiting'}
+    projection = {'_id': 0, 'tweet_id': 1, "task_id" : 1 }
+    tweet = db.answers.find_one(query, projection)
 
-        if tweet is None:
-            return jsonify(None)
-        else:
-            return jsonify(tweet)
-    except:
+    if tweet is None:
         return jsonify(None)
+    else:
+        assign_voicechat(tweet['tweet_id'], [responser])
+        return jsonify(tweet)
+
 
 
 @application.route("/assign_user/<string:tweet_id>/<string:responser>")
