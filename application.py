@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request
 from flask_restful import Api, Resource, reqparse
 from flask_cors import CORS, cross_origin
 from flask_pymongo import PyMongo
+from datetime import  datetime
 import requests
 import json
 import scrapper
@@ -12,6 +13,8 @@ import atexit
 import voicechat
 
 from apscheduler.schedulers.background import BackgroundScheduler
+
+from utils import date_diff_secs
 
 from voicechat.tokenizer import generate_token
 
@@ -24,29 +27,29 @@ api = Api(application)
 
 
 # define the function which will be scheduled
-# def auto_distribute_task():
-#     all_users = db.users.find({})
-#     names = []
-#     ids = []
-#     for user in all_users:
-#         names.append(user["_id"])
-#     all_tweets = db.tweets.find({})
-#     for tweet in all_tweets:
-#         ids.append(tuple([tweet["_id"], tweet['owner_id'], tweet['task_id']]))
-#
-#     for x in names:
-#         for y in ids:
-#             query = {'tweet_id': y[0], 'responser': x, 'owner_id': y[1], 'task_id': y[2]}
-#             result = db.answers.find_one(query)
-#             if result is None:
-#                 db.answers.insert_one(
-#                     {'tweet_id': y[0], 'responser': x,
-#                      'owner_id': y[1], 'task_id': y[2], 'status': 'Waiting'})
-#
-#
-# scheduler = BackgroundScheduler()
-# scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=60)
-# scheduler.start()
+def auto_distribute_task():
+    all_users = db.users.find({})
+    names = []
+    ids = []
+    for user in all_users:
+        names.append(user["_id"])
+    all_tweets = db.tweets.find({})
+    for tweet in all_tweets:
+        ids.append(tuple([tweet["_id"], tweet['owner_id'], tweet['task_id']]))
+
+    for x in names:
+        for y in ids:
+            query = {'tweet_id': y[0], 'responser': x, 'owner_id': y[1], 'task_id': y[2]}
+            result = db.answers.find_one(query)
+            if result is None:
+                db.answers.insert_one(
+                    {'tweet_id': y[0], 'responser': x,
+                     'owner_id': y[1], 'task_id': y[2], 'status': 'Waiting'})
+
+
+#scheduler = BackgroundScheduler()
+#scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=60)
+#scheduler.start()
 
 
 @application.route("/message")
@@ -197,6 +200,7 @@ def get_task(task_id):
     except:
         return jsonify(None)
 
+
 @application.route("/add_response", methods=['POST'])
 @cross_origin()
 def add_response():
@@ -215,28 +219,52 @@ def add_response():
         return jsonify(message="failed")
 
 
-def assign_voicechat(channelName):
-    token = generate_token(channelName)
-    db.voicechats.insert_one({'_id': channelName, 'token': token})
-    # try:
-    #     return jsonify(message="success : " + str(channelName))
-    # except:
-    #     return jsonify(message="failed : " + str(channelName))
+# creates an agora channel with given name
+# adds the necessary documents to the voicechats collection for the given mails
+def assign_voicechat(channel_name, mails):
+    channel_name = str(channel_name)
+    token = generate_token(channel_name)
+    dt = datetime.now()
+    q_list = [{'name': channel_name, 'token': token, 'mail': mail, 'date': dt} for mail in mails]
+    db.voicechats.insert_many(q_list)
+
+
+# clears the channels older than 5 minutes from the collection
+def clear_voicechat():
+    projection = {'_id': 1, 'token': 0, 'mail': 0, 'date': 1}
+    res = db.voicechats.find({}, projection)
+    dt = datetime.now()
+    to_delete = [{'_id': _id} for _id in res if date_diff_secs(res.date, dt) > 300]
+    db.voicechats.delete_many(to_delete)
+
+# checks if there is a pending voicechat for a given responser, if there is returns channel name and token
+@application.route("/check_voicechat/<string:responser>")
+@cross_origin()
+def check_voicechat(responser):
+    query = {'mail': responser}
+    projection = {'_id': 0, 'name': 1, 'token': 1}
+    channel = db.voicechats.find_one(query, projection)
+    if channel is None:
+        return jsonify(None)
+    else:
+        return jsonify(channel)
+
+
+
 
 @application.route("/get_tweet_to_answer/<string:responser>")
 @cross_origin()
 def getTweet2(responser):
-    try:
-        query = {'responser': responser, 'status': 'Waiting'}
-        projection = {'_id': 0, 'tweet_id': 1, "task_id" : 1 }
-        tweet = db.answers.find_one(query, projection)
-        assign_voicechat(channelName=tweet['tweet_id'])
-        if tweet is None:
-            return jsonify(None)
-        else:
-            return jsonify(tweet)
-    except:
+    query = {'responser': responser, 'status': 'Waiting'}
+    projection = {'_id': 0, 'tweet_id': 1, "task_id" : 1 }
+    tweet = db.answers.find_one(query, projection)
+
+    if tweet is None:
         return jsonify(None)
+    else:
+        assign_voicechat(tweet['tweet_id'], [responser])
+        return jsonify(tweet)
+
 
 
 @application.route("/assign_user/<string:tweet_id>/<string:responser>")
