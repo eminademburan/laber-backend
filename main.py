@@ -173,7 +173,7 @@ def add_task():
     print("data: ", data)
 
     # TODO: check whether all the required fields are supplied by the customer
-    
+
     try:
         task_find = db.tasks.find_one({"_id": data["taskName"], "customerEmail": data['customerEmail']})
         if task_find is None:
