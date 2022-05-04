@@ -214,7 +214,6 @@ def add_task():
     except:
         return jsonify(None)
 
-
 @application.route("/add_tweet/<string:tweet_id>/<string:text>/<int:noOfLike>/<string:tweetGroup>")
 @cross_origin()
 def add_tweet(tweet_id, text, noOfLike, tweetGroup):
@@ -223,7 +222,6 @@ def add_tweet(tweet_id, text, noOfLike, tweetGroup):
         return jsonify(message="success")
     except:
         return jsonify(message="failed")
-
 
 @application.route("/get_tweet/<string:tweet_id>/<string:task_id>")
 @cross_origin()
@@ -251,6 +249,48 @@ def get_task(task_id):
             return jsonify(task)
     except:
         return jsonify(None)
+
+
+@application.route("/get_customer_tasks/<string:customer_email>")
+@jwt_required()
+@cross_origin()
+def get_customer_tasks(customer_email):
+    get_customer_tasks_query = {'customerEmail': customer_email}
+    atleast_one_customer_task_exists = False
+    all_task_answers = {}
+    for customer_task in db.tasks.find(get_customer_tasks_query):
+        atleast_one_customer_task_exists = True
+        task_scalar_answers = {}
+        task_nonscalar_answers = {}
+        for scalar_answer in customer_task['scalarMetrics']:
+            task_scalar_answers[scalar_answer['name']] = 0
+
+        for nonscalar_answer in customer_task['nonScalarMetrics']:
+            task_nonscalar_answers[nonscalar_answer['name']] = {}
+            task_nonscalar_answers_metric_keys = {}
+            for nonscalar_metric_key in nonscalar_answer['metricKeys']:
+                task_nonscalar_answers_metric_keys[nonscalar_metric_key] = 0
+            task_nonscalar_answers[nonscalar_answer['name']] = task_nonscalar_answers_metric_keys
+
+        scalar_and_nonscalar_combined = {'scalar': task_scalar_answers, 'nonscalar': task_nonscalar_answers}
+        all_task_answers[customer_task['_id']] = scalar_and_nonscalar_combined
+
+    print("all task answers: ", all_task_answers)
+
+    # get answers
+    for customer_task in db.tasks.find(get_customer_tasks_query):
+        projection = {'_id': 0, 'tweet_id': 0, "owner_id": 0, "status": 0}
+        get_task_answers_query = {'task_id': customer_task['_id'], 'status': 'Answered'}
+
+        # get all answers belonging to the task with the '_id'
+        for answer_to_task in db.answers.find(get_task_answers_query, projection):
+            print(answer_to_task)
+
+    if atleast_one_customer_task_exists is False:
+        return jsonify(message="failed")
+    else:
+        return jsonify(message="success")
+
 
 @application.route("/add_response", methods=['POST'])
 @cross_origin()
