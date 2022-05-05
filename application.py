@@ -268,11 +268,10 @@ def add_response():
 # creates an agora channel with given name
 # adds the necessary documents to the voicechats collection for the given mails
 def assign_voicechat(channel_name, mails):
-    channel_name = str('bac' + channel_name)
+    channel_name = str(channel_name)
     # check if channel name exists
     if db.voicechats.find_one({"name": channel_name}) is not None:
         return
-
     token = generate_token(channel_name)
     dt = datetime.now()
     q_list = [{'name': channel_name, 'token': token, 'mail': mail, 'date': dt} for mail in mails]
