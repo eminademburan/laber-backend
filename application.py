@@ -406,7 +406,7 @@ def clear_voicechat():
     try:
         for row in db.voicechats.find():
             date = row['date']
-            if date_diff_secs(date, now) > 1:
+            if date_diff_secs(date, now) > 300:
                 to_delete.append(row['_id'])
         db.voicechats.delete_many({'_id': {'$in' : to_delete}})
 
@@ -415,7 +415,7 @@ def clear_voicechat():
 
 scheduler = BackgroundScheduler()
 scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=60)
-scheduler.add_job(func=clear_voicechat, trigger="interval", seconds=5)
+scheduler.add_job(func=clear_voicechat, trigger="interval", seconds=300)
 scheduler.start()
 
 # checks if there is a pending voicechat for a given responser, if there is returns channel name and token
