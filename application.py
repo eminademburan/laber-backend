@@ -209,7 +209,6 @@ def add_task():
     except:
         return jsonify(None)
 
-
 @application.route("/add_tweet/<string:tweet_id>/<string:text>/<int:noOfLike>/<string:tweetGroup>")
 @cross_origin()
 def add_tweet(tweet_id, text, noOfLike, tweetGroup):
@@ -218,7 +217,6 @@ def add_tweet(tweet_id, text, noOfLike, tweetGroup):
         return jsonify(message="success")
     except:
         return jsonify(message="failed")
-
 
 @application.route("/get_tweet/<string:tweet_id>/<string:task_id>")
 @cross_origin()
@@ -246,6 +244,129 @@ def get_task(task_id):
             return jsonify(task)
     except:
         return jsonify(None)
+
+
+@application.route("/get_customer_tasks/<string:customer_email>")
+@jwt_required()
+@cross_origin()
+def get_customer_tasks(customer_email):
+    get_customer_tasks_query = {'customerEmail': customer_email}
+    atleast_one_customer_task_exists = False
+    all_task_answers = {}
+    for customer_task in db.tasks.find(get_customer_tasks_query):
+        atleast_one_customer_task_exists = True
+        task_scalar_answers = {}
+        task_nonscalar_answers = {}
+        for scalar_answer in customer_task['scalarMetrics']:
+            task_scalar_answers[scalar_answer['name']] = 0
+
+        for nonscalar_answer in customer_task['nonScalarMetrics']:
+            task_nonscalar_answers[nonscalar_answer['name']] = {}
+            task_nonscalar_answers_metric_keys = {}
+            for nonscalar_metric_key in nonscalar_answer['metricKeys']:
+                task_nonscalar_answers_metric_keys[nonscalar_metric_key] = 0
+            task_nonscalar_answers[nonscalar_answer['name']] = task_nonscalar_answers_metric_keys
+
+        scalar_and_nonscalar_combined = {'scalar': task_scalar_answers, 'nonscalar': task_nonscalar_answers}
+        all_task_answers[customer_task['_id']] = scalar_and_nonscalar_combined
+
+    print("all task answers: ", all_task_answers)
+
+    # get answers
+    for customer_task in db.tasks.find(get_customer_tasks_query):
+        projection = {'_id': 0, 'tweet_id': 0, "owner_id": 0, "status": 0}
+        get_task_answers_query = {'task_id': customer_task['_id'], 'status': 'Answered'}
+        task_name = customer_task['_id']
+        response_count = 0
+
+        # get all answers belonging to the task with the '_id'
+        for answer_to_task in db.answers.find(get_task_answers_query, projection):
+            print(answer_to_task)
+
+            response_count += 1
+            # responer, task_name
+            # responser_answer_count_to_task_name = db.answers.find({'responser': answer_to_task['responser'], 'task_id': task_name}).count()
+            # response_count += responser_answer_count_to_task_name
+
+            # get answers for nonscalar metrics
+            nonscalar_metric_count_for_task_name = len(all_task_answers[task_name]['nonscalar'])
+            for index in range(nonscalar_metric_count_for_task_name):
+                count = 0
+                for non_scalar_key in all_task_answers[task_name]['nonscalar']:
+                    if index == count:
+                        answer = answer_to_task['answers'][index]
+                        all_task_answers[task_name]['nonscalar'][non_scalar_key][answer] += 1
+                    count += 1
+
+
+
+            # get answers for scalar metrics and increment count
+            scalar_metric_count_for_task_name = len(all_task_answers[task_name]['scalar'])
+            for index in range(nonscalar_metric_count_for_task_name, scalar_metric_count_for_task_name + nonscalar_metric_count_for_task_name):
+                # print("index: ", index)
+                # print("answers: ", answer_to_task['answers'])
+
+                count = nonscalar_metric_count_for_task_name
+                for scalar_key in all_task_answers[task_name]['scalar']:
+                    if index == count:
+                        answer = answer_to_task['answers'][index]
+                        all_task_answers[task_name]['scalar'][scalar_key] += int(answer)
+                    count += 1
+
+                # print("date type: ", type(answer_to_task['answerDate']))
+                # print("answers type: ", type(answer_to_task['answers']))
+
+        # go through scalar tasks in task with the 'task_name' and
+        # divide the results by the responser count
+        for scalar_metric_result in all_task_answers[task_name]['scalar']:
+            print("result key for ", task_name, " :",  scalar_metric_result)
+            print("response_count: ", response_count)
+            print("result before averaging: ", all_task_answers[task_name]['scalar'][scalar_metric_result])
+            average_result = all_task_answers[task_name]['scalar'][scalar_metric_result] / response_count
+            all_task_answers[task_name]['scalar'][scalar_metric_result] = round(average_result, 1)
+
+    print("print all task_answers: ", all_task_answers)
+    # all_task_answers[task_name]
+    # all_task_answers[task_name]['scalar']
+    # all_task_answers[task_name]['scalar']['dignity']
+
+    # change_metric_type_from_obj_to_lst
+    all_task_answers = change_metric_type_from_obj_to_lst(all_task_answers)
+
+    if atleast_one_customer_task_exists is False:
+        return jsonify(message="failed")
+    else:
+        return jsonify(all_task_answers)
+
+
+def change_metric_type_from_obj_to_lst(all_task_answers):
+    lst_result = all_task_answers
+
+    for customer_task_name in all_task_answers:
+        scalar_metrics = []
+        scalar_metric_results = []
+
+
+        for scalar_metric in all_task_answers[customer_task_name]['scalar']:
+            scalar_metrics.append(scalar_metric)
+            scalar_metric_results.append(all_task_answers[customer_task_name]['scalar'][scalar_metric])
+
+        scalar_all_results = [scalar_metrics, scalar_metric_results]
+        lst_result[customer_task_name]['scalar'] = scalar_all_results
+        for nonscalar_metric in all_task_answers[customer_task_name]['nonscalar']:
+            nonscalar_results = []
+            nonscalar_metric_keys = []
+            nonscalar_metric_key_results = []
+
+            for key in all_task_answers[customer_task_name]['nonscalar'][nonscalar_metric]:
+                nonscalar_metric_keys.append(key)
+                nonscalar_metric_key_results.append(all_task_answers[customer_task_name]['nonscalar'][nonscalar_metric][key])
+
+            nonscalar_results.append(nonscalar_metric_keys)
+            nonscalar_results.append(nonscalar_metric_key_results)
+
+            lst_result[customer_task_name]['nonscalar'][nonscalar_metric] = nonscalar_results
+    return lst_result
 
 @application.route("/add_response", methods=['POST'])
 @cross_origin()
