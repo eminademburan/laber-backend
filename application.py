@@ -64,11 +64,6 @@ def auto_distribute_task():
                      'owner_id': y[1], 'task_id': y[2], 'status': 'Waiting'})
 
 
-scheduler = BackgroundScheduler()
-scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=60)
-scheduler.start()
-
-
 @application.route("/message")
 @cross_origin()
 def get_user2():
@@ -273,7 +268,11 @@ def add_response():
 # creates an agora channel with given name
 # adds the necessary documents to the voicechats collection for the given mails
 def assign_voicechat(channel_name, mails):
-    channel_name = str(channel_name)
+    channel_name = str('bac' + channel_name)
+    # check if channel name exists
+    if db.voicechats.find_one({"name": channel_name}) is not None:
+        return
+
     token = generate_token(channel_name)
     dt = datetime.now()
     q_list = [{'name': channel_name, 'token': token, 'mail': mail, 'date': dt} for mail in mails]
@@ -282,11 +281,22 @@ def assign_voicechat(channel_name, mails):
 
 # clears the channels older than 5 minutes from the collection
 def clear_voicechat():
-    projection = {'_id': 1, 'token': 0, 'mail': 0, 'date': 1}
-    res = db.voicechats.find({}, projection)
-    dt = datetime.now()
-    to_delete = [{'_id': _id} for _id in res if date_diff_secs(res.date, dt) > 300]
-    db.voicechats.delete_many(to_delete)
+    now = datetime.now()
+    to_delete = []
+    try:
+        for row in db.voicechats.find():
+            date = row['date']
+            if date_diff_secs(date, now) > 1:
+                to_delete.append(row['_id'])
+        db.voicechats.delete_many({'_id': {'$in' : to_delete}})
+
+    except Exception as e:
+        print(e)
+
+scheduler = BackgroundScheduler()
+scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=60)
+scheduler.add_job(func=clear_voicechat, trigger="interval", seconds=5)
+scheduler.start()
 
 # checks if there is a pending voicechat for a given responser, if there is returns channel name and token
 @application.route("/check_voicechat/<string:responser>")
@@ -299,8 +309,6 @@ def check_voicechat(responser):
         return jsonify(None)
     else:
         return jsonify(channel)
-
-
 
 
 @application.route("/get_tweet_to_answer/<string:responser>")
