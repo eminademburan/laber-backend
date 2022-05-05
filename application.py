@@ -327,7 +327,8 @@ def get_customer_tasks(customer_email):
             print("result key for ", task_name, " :",  scalar_metric_result)
             print("response_count: ", response_count)
             print("result before averaging: ", all_task_answers[task_name]['scalar'][scalar_metric_result])
-            all_task_answers[task_name]['scalar'][scalar_metric_result] /= response_count
+            average_result = all_task_answers[task_name]['scalar'][scalar_metric_result] / response_count
+            all_task_answers[task_name]['scalar'][scalar_metric_result] = round(average_result, 1)
 
     print("print all task_answers: ", all_task_answers)
     # all_task_answers[task_name]
