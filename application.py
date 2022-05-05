@@ -281,15 +281,63 @@ def get_customer_tasks(customer_email):
     for customer_task in db.tasks.find(get_customer_tasks_query):
         projection = {'_id': 0, 'tweet_id': 0, "owner_id": 0, "status": 0}
         get_task_answers_query = {'task_id': customer_task['_id'], 'status': 'Answered'}
+        task_name = customer_task['_id']
+        response_count = 0
 
         # get all answers belonging to the task with the '_id'
         for answer_to_task in db.answers.find(get_task_answers_query, projection):
             print(answer_to_task)
 
+            response_count += 1
+            # responer, task_name
+            # responser_answer_count_to_task_name = db.answers.find({'responser': answer_to_task['responser'], 'task_id': task_name}).count()
+            # response_count += responser_answer_count_to_task_name
+
+            # get answers for nonscalar metrics
+            nonscalar_metric_count_for_task_name = len(all_task_answers[task_name]['nonscalar'])
+            for index in range(nonscalar_metric_count_for_task_name):
+                count = 0
+                for non_scalar_key in all_task_answers[task_name]['nonscalar']:
+                    if index == count:
+                        answer = answer_to_task['answers'][index]
+                        all_task_answers[task_name]['nonscalar'][non_scalar_key][answer] += 1
+                    count += 1
+
+
+
+            # get answers for scalar metrics and increment count
+            scalar_metric_count_for_task_name = len(all_task_answers[task_name]['scalar'])
+            for index in range(nonscalar_metric_count_for_task_name, scalar_metric_count_for_task_name + nonscalar_metric_count_for_task_name):
+                # print("index: ", index)
+                # print("answers: ", answer_to_task['answers'])
+
+                count = nonscalar_metric_count_for_task_name
+                for scalar_key in all_task_answers[task_name]['scalar']:
+                    if index == count:
+                        answer = answer_to_task['answers'][index]
+                        all_task_answers[task_name]['scalar'][scalar_key] += int(answer)
+                    count += 1
+
+                # print("date type: ", type(answer_to_task['answerDate']))
+                # print("answers type: ", type(answer_to_task['answers']))
+
+        # go through scalar tasks in task with the 'task_name' and
+        # divide the results by the responser count
+        for scalar_metric_result in all_task_answers[task_name]['scalar']:
+            print("result key for ", task_name, " :",  scalar_metric_result)
+            print("response_count: ", response_count)
+            print("result before averaging: ", all_task_answers[task_name]['scalar'][scalar_metric_result])
+            all_task_answers[task_name]['scalar'][scalar_metric_result] /= response_count
+
+    print("print all task_answers: ", all_task_answers)
+    # all_task_answers[task_name]
+    # all_task_answers[task_name]['scalar']
+    # all_task_answers[task_name]['scalar']['dignity']
+
     if atleast_one_customer_task_exists is False:
         return jsonify(message="failed")
     else:
-        return jsonify(message="success")
+        return jsonify(all_task_answers)
 
 
 @application.route("/add_response", methods=['POST'])
@@ -328,6 +376,7 @@ def clear_voicechat():
     to_delete = [{'_id': _id} for _id in res if date_diff_secs(res.date, dt) > 300]
     db.voicechats.delete_many(to_delete)
 
+
 # checks if there is a pending voicechat for a given responser, if there is returns channel name and token
 @application.route("/check_voicechat/<string:responser>")
 @cross_origin()
@@ -339,7 +388,6 @@ def check_voicechat(responser):
         return jsonify(None)
     else:
         return jsonify(channel)
-
 
 
 
