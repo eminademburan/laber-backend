@@ -258,7 +258,7 @@ def add_response():
             return jsonify(message="failed")
         else:
             query = {'tweet_id': data["tweet_id"], 'responser': data["mail"], 'task_id' : data["task_id"]}
-            new_values = {"$set": {'answers': data["answers"], 'status': 'Answered'}}
+            new_values = {"$set": {'answers': data["answers"], 'status': 'Answered', 'answerDate' : data["date"]}}
             db.answers.update_one(query, new_values)
             return jsonify(message="true")
     except:
