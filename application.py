@@ -335,11 +335,43 @@ def get_customer_tasks(customer_email):
     # all_task_answers[task_name]['scalar']
     # all_task_answers[task_name]['scalar']['dignity']
 
+    # change_metric_type_from_obj_to_lst
+    all_task_answers = change_metric_type_from_obj_to_lst(all_task_answers)
+
     if atleast_one_customer_task_exists is False:
         return jsonify(message="failed")
     else:
         return jsonify(all_task_answers)
 
+
+def change_metric_type_from_obj_to_lst(all_task_answers):
+    lst_result = all_task_answers
+
+    for customer_task_name in all_task_answers:
+        scalar_metrics = []
+        scalar_metric_results = []
+
+
+        for scalar_metric in all_task_answers[customer_task_name]['scalar']:
+            scalar_metrics.append(scalar_metric)
+            scalar_metric_results.append(all_task_answers[customer_task_name]['scalar'][scalar_metric])
+
+        scalar_all_results = [scalar_metrics, scalar_metric_results]
+        lst_result[customer_task_name]['scalar'] = scalar_all_results
+        for nonscalar_metric in all_task_answers[customer_task_name]['nonscalar']:
+            nonscalar_results = []
+            nonscalar_metric_keys = []
+            nonscalar_metric_key_results = []
+
+            for key in all_task_answers[customer_task_name]['nonscalar'][nonscalar_metric]:
+                nonscalar_metric_keys.append(key)
+                nonscalar_metric_key_results.append(all_task_answers[customer_task_name]['nonscalar'][nonscalar_metric][key])
+
+            nonscalar_results.append(nonscalar_metric_keys)
+            nonscalar_results.append(nonscalar_metric_key_results)
+
+            lst_result[customer_task_name]['nonscalar'][nonscalar_metric] = nonscalar_results
+    return lst_result
 
 @application.route("/add_response", methods=['POST'])
 @cross_origin()
@@ -404,7 +436,6 @@ def getTweet2(responser):
     else:
         assign_voicechat(tweet['tweet_id'], [responser])
         return jsonify(tweet)
-
 
 
 @application.route("/assign_user/<string:tweet_id>/<string:responser>")
