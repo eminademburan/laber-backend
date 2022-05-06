@@ -251,6 +251,25 @@ def get_task(task_id):
         return jsonify(None)
 
 
+@application.route("/get_min_max_for_task/<string:customer_email>/<string:task_name>/<string:scalar_metric_name>")
+@jwt_required()
+@cross_origin()
+def get_min_max_for_task(customer_email, task_name, scalar_metric_name):
+    print("customer email: ", customer_email)
+    print("task name: ", task_name)
+    print("scalar metric name: ", scalar_metric_name)
+    task = db.tasks.find_one({'_id': task_name, 'customerEmail': customer_email})
+    print(task)
+    for scalar_metric in task['scalarMetrics']:
+        print("scalar metric: ", scalar_metric)
+        if scalar_metric['name'] == scalar_metric_name:
+            print("min: ", scalar_metric['min'])
+            print("max: ", scalar_metric['max'])
+            min_max = [scalar_metric['min'], scalar_metric['max']]
+            return jsonify(min_max)
+    return jsonify(None)
+
+
 @application.route("/get_customer_tasks/<string:customer_email>")
 @jwt_required()
 @cross_origin()
@@ -275,7 +294,7 @@ def get_customer_tasks(customer_email):
         scalar_and_nonscalar_combined = {'scalar': task_scalar_answers, 'nonscalar': task_nonscalar_answers}
         all_task_answers[customer_task['_id']] = scalar_and_nonscalar_combined
 
-    print("all task answers: ", all_task_answers)
+   # print("all task answers: ", all_task_answers)
 
     # get answers
     for customer_task in db.tasks.find(get_customer_tasks_query):
@@ -286,7 +305,7 @@ def get_customer_tasks(customer_email):
 
         # get all answers belonging to the task with the '_id'
         for answer_to_task in db.answers.find(get_task_answers_query, projection):
-            print(answer_to_task)
+            # print(answer_to_task)
 
             response_count += 1
             # responer, task_name
@@ -324,13 +343,13 @@ def get_customer_tasks(customer_email):
         # go through scalar tasks in task with the 'task_name' and
         # divide the results by the responser count
         for scalar_metric_result in all_task_answers[task_name]['scalar']:
-            print("result key for ", task_name, " :",  scalar_metric_result)
-            print("response_count: ", response_count)
-            print("result before averaging: ", all_task_answers[task_name]['scalar'][scalar_metric_result])
+            # print("result key for ", task_name, " :",  scalar_metric_result)
+            # print("response_count: ", response_count)
+            # print("result before averaging: ", all_task_answers[task_name]['scalar'][scalar_metric_result])
             average_result = all_task_answers[task_name]['scalar'][scalar_metric_result] / response_count
             all_task_answers[task_name]['scalar'][scalar_metric_result] = round(average_result, 1)
 
-    print("print all task_answers: ", all_task_answers)
+    #print("print all task_answers: ", all_task_answers)
     # all_task_answers[task_name]
     # all_task_answers[task_name]['scalar']
     # all_task_answers[task_name]['scalar']['dignity']
@@ -371,6 +390,7 @@ def change_metric_type_from_obj_to_lst(all_task_answers):
             nonscalar_results.append(nonscalar_metric_key_results)
 
             lst_result[customer_task_name]['nonscalar'][nonscalar_metric] = nonscalar_results
+   # print(lst_result)
     return lst_result
 
 @application.route("/add_response", methods=['POST'])
