@@ -337,12 +337,13 @@ def get_customer_tasks(customer_email):
 
         # go through scalar tasks in task with the 'task_name' and
         # divide the results by the responser count
-        for scalar_metric_result in all_task_answers[task_name]['scalar']:
-            # print("result key for ", task_name, " :",  scalar_metric_result)
-            # print("response_count: ", response_count)
-            # print("result before averaging: ", all_task_answers[task_name]['scalar'][scalar_metric_result])
-            average_result = all_task_answers[task_name]['scalar'][scalar_metric_result] / response_count
-            all_task_answers[task_name]['scalar'][scalar_metric_result] = round(average_result, 1)
+        if response_count != 0:
+            for scalar_metric_result in all_task_answers[task_name]['scalar']:
+                # print("result key for ", task_name, " :",  scalar_metric_result)
+                # print("response_count: ", response_count)
+                # print("result before averaging: ", all_task_answers[task_name]['scalar'][scalar_metric_result])
+                average_result = all_task_answers[task_name]['scalar'][scalar_metric_result] / response_count
+                all_task_answers[task_name]['scalar'][scalar_metric_result] = round(average_result, 1)
 
     #print("print all task_answers: ", all_task_answers)
     # all_task_answers[task_name]
