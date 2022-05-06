@@ -1,3 +1,4 @@
+import random
 from datetime import datetime
 
 from flask import Flask, jsonify, request
@@ -55,11 +56,7 @@ def auto_distribute_task():
             query_result = db.tasks.find_one(query2)
             responser_age_query_result = db.users.find_one({'_id': x})
             user_age = responser_age_query_result['age']
-            if query_result is not None:
-                min_age = query_result['minAge']
-                max_age = query_result['maxAge']
-            if result is None and int(max_age) >= int(user_age) >= int(min_age):
-                db.answers.insert_one(
+            db.answers.insert_one(
                     {'tweet_id': y[0], 'responser': x,
                      'owner_id': y[1], 'task_id': y[2], 'status': 'Waiting'})
 
@@ -77,7 +74,7 @@ def form_example():
     if (data["firstName"] == "Fred"):
         return jsonify(message="success")
     else:
-        return jsonify(message="bok")
+        return jsonify(message="fail")
 
 
 @application.route("/add_user", methods=['POST'])
@@ -388,15 +385,18 @@ def add_response():
 
 # creates an agora channel with given name
 # adds the necessary documents to the voicechats collection for the given mails
-def assign_voicechat(channel_name, mails):
-    channel_name = str(channel_name)
+def assign_voicechat(tweet_id, mails):
+    channel_name = str(random.randint(0, int(1e10)) + int(1e10))
     # check if channel name exists
-    if db.voicechats.find_one({"name": channel_name}) is not None:
+    for mail in mails:
+        if db.voice_chats.find_one({"mail": mail}) is not None:
+            return
+    if db.voice_chats.find_one({"name": channel_name}) is not None:
         return
     token = generate_token(channel_name)
     dt = datetime.now()
-    q_list = [{'name': channel_name, 'token': token, 'mail': mail, 'date': dt} for mail in mails]
-    db.voicechats.insert_many(q_list)
+    q_list = [{'name': channel_name, 'tweet_id': tweet_id, 'token': token, 'mail': mail, 'date': dt} for mail in mails]
+    db.voice_chats.insert_many(q_list)
 
 
 # clears the channels older than 5 minutes from the collection
@@ -404,18 +404,18 @@ def clear_voicechat():
     now = datetime.now()
     to_delete = []
     try:
-        for row in db.voicechats.find():
+        for row in db.voice_chats.find():
             date = row['date']
-            if date_diff_secs(date, now) > 300:
+            if date_diff_secs(date, now) > 240:
                 to_delete.append(row['_id'])
-        db.voicechats.delete_many({'_id': {'$in' : to_delete}})
+        db.voice_chats.delete_many({'_id': {'$in' : to_delete}})
 
     except Exception as e:
         print(e)
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=60)
-scheduler.add_job(func=clear_voicechat, trigger="interval", seconds=300)
+scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=15)
+scheduler.add_job(func=clear_voicechat, trigger="interval", seconds=60)
 scheduler.start()
 
 # checks if there is a pending voicechat for a given responser, if there is returns channel name and token
@@ -423,8 +423,14 @@ scheduler.start()
 @cross_origin()
 def check_voicechat(responser):
     query = {'mail': responser}
-    projection = {'_id': 0, 'name': 1, 'token': 1}
-    channel = db.voicechats.find_one(query, projection)
+    projection = {'_id': 0, 'name': 1, 'tweet_id': 1, 'token': 1}
+    channel = db.voice_chats.find_one(query, projection)
+    tweet_id = channel['tweet_id']
+    query2 = {'_id': tweet_id}
+    query3 = {'status': 'Answered'}
+    channel['url'] = db.tweets.find_one(query2)['url']
+    channel['answer'] = db.answers.find_one(query3)['answers'][0]
+    pass
     if channel is None:
         return jsonify(None)
     else:
@@ -443,7 +449,6 @@ def getTweet2(responser):
     else:
         assign_voicechat(tweet['tweet_id'], [responser])
         return jsonify(tweet)
-
 
 
 @application.route("/assign_user/<string:tweet_id>/<string:responser>")
