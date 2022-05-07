@@ -31,7 +31,7 @@ load_dotenv()
 application.config["JWT_SECRET_KEY"] = os.getenv('JWT_SECRET_KEY')
 jwt = JWTManager(application)
 mongo = PyMongo(application,
-                uri="mongodb+srv://ademburan:proje1234@cluster0.9k20l.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
+                uri="mongodb+srv://aademburan:proje1234@cluster0.9k20l.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
 db = mongo.db
 CORS(application)
 api = Api(application)
