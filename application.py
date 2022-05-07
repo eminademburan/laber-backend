@@ -370,12 +370,12 @@ def change_metric_type_from_obj_to_lst(all_task_answers):
 def add_response():
     data = request.json
     try:
-
         query = {'status': "Waiting", 'tweet_id': data["tweet_id"], 'responser': data["mail"], 'task_id' : data["task_id"]}
         if db.answers.find_one(query) is None:
             return jsonify(message="failed")
         else:
             query = {'tweet_id': data["tweet_id"], 'responser': data["mail"], 'task_id' : data["task_id"]}
+            print(data["answers"])
             new_values = {"$set": {'answers': data["answers"], 'status': 'Answered', 'answerDate' : data["date"]}}
             db.answers.update_one(query, new_values)
             return jsonify(message="true")
