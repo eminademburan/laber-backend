@@ -17,6 +17,8 @@ apscheduler = "*"
 snscrape = "*"
 flask-jwt-extended = "*"
 python-dotenv = "*"
+numpy = "*"
+
 [dev-packages]
 
 [requires]
