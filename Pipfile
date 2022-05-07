@@ -18,6 +18,7 @@ snscrape = "*"
 flask-jwt-extended = "*"
 python-dotenv = "*"
 numpy = "*"
+scipy = "*"
 
 [dev-packages]
 

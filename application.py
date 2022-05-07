@@ -427,22 +427,6 @@ def add_response():
         return jsonify(message="failed")
 
 
-# creates an agora channel with given name
-# adds the necessary documents to the voicechats collection for the given mails
-def assign_voicechat(tweet_id, mails):
-    channel_name = str(random.randint(0, int(1e10)) + int(1e10))
-    # check if channel name exists
-    for mail in mails:
-        if db.voice_chats.find_one({"mail": mail}) is not None:
-            return
-    if db.voice_chats.find_one({"name": channel_name}) is not None:
-        return
-    token = generate_token(channel_name)
-    dt = datetime.now()
-    q_list = [{'name': channel_name, 'tweet_id': tweet_id, 'token': token, 'mail': mail, 'date': dt} for mail in mails]
-    db.voice_chats.insert_many(q_list)
-
-
 # clears the channels older than 5 minutes from the collection
 def clear_voicechat():
     now = datetime.now()

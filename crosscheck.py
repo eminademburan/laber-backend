@@ -20,8 +20,10 @@ import atexit
 import voicechat
 
 import numpy as np
-
+from scipy.stats import entropy
 from apscheduler.schedulers.background import BackgroundScheduler
+
+from voicechat.tokenizer import generate_token
 
 application = Flask(__name__)
 load_dotenv()
@@ -35,7 +37,6 @@ api = Api(application)
 
 
 def z_score(answers):
-    answers = answers.T
     mean = np.mean(answers, axis=1, keepdims=True)
     std = np.std(answers, axis=1, keepdims=True)
     return (answers - mean) / std
@@ -53,8 +54,22 @@ def get_answers(tweet_id):
 
 
 ROOM_SIZE = 5
+ENTROPY_THRESHOLD = 0.5
 
 def check_nonscalar(answers):
+    entropies = entropy(answers)
+    num_metrics = answers.shape[0]
+    num_experts = answers.shape[1]
+
+    # No need for a voice chat for metrics without many diversity
+    satisfied = np.greater(entropies, ENTROPY_THRESHOLD)
+
+    experts = np.arange(min(ROOM_SIZE, num_experts))
+    chosen_experts = np.zeros((num_metrics, num_experts))
+    for i in range(num_metrics):
+        chosen_experts[i] = experts
+
+    return chosen_experts, satisfied
 
 def check_scalar(answers):
     # all the answers for all the metrics of a tweet are given
@@ -83,7 +98,29 @@ def check_scalar(answers):
 
     return chosen_experts, satisfied
 
+def get_response_rate(tweet_id):
+    query = {"tweet_id": tweet_id}
+    projection = {"_id": 0, "responser": 1}
+
+    num_answers = len(list(get_answers(tweet_id)))
+    all = len(list(db.answers.find(query, projection)))
+
+    return num_answers / all
+
+def voicechat_exists(tweet_id):
+    query = {'tweet_id': tweet_id}
+    projection = {'tweet_id': 1}
+    voicechats = db.voice_chats.find_one(query, projection)
+
+    return voicechats is not None
+
+RESPONSE_RATE_THRESHOLD = 0.01
+
 def check_conflict(tweet_id):
+
+    if get_response_rate(tweet_id) < RESPONSE_RATE_THRESHOLD or voicechat_exists(tweet_id):
+        return
+    
     query = {"_id": tweet_id}
     projection = {"_id": 0, "task_id": 1}
     tweet = db.tweets.find_one(query, projection)
@@ -99,14 +136,39 @@ def check_conflict(tweet_id):
 
     answers_db = list(get_answers(tweet_id))
     answers = [row["answers"] for row in answers_db]
-    scalar_answers = [answer[:n] for answer in answers]
-    nonscalar_answers = [answer[n:] for answer in answers]
+    # scalar_answers = [answer[:n] for answer in answers]
+    # nonscalar_answers = [answer[n:] for answer in answers]
 
     responsers = [row["responser"] for row in answers_db]
 
-    nonscalar_conflicts = check_nonscalar(scalar_metrics, scalar_answers)
-    scalar_conflicts = check_scalar(nonscalar_metrics, nonscalar_answers)
+    answers = np.array(answers).T
+    nonscalar_answers = answers[:, n:]
+    scalar_answers = answers[:, :n]
 
+    chosen_experts, satisfied = np.concatenate((check_nonscalar(nonscalar_answers),
+                                                check_scalar(scalar_answers)), axis=0)
+
+    for i in range(chosen_experts):
+        if satisfied[i]:
+            mails = []
+            for j in range(chosen_experts[i]):
+                mails.append(responsers[j])
+                assign_voicechat(mails, tweet_id, metric_id=i)
+
+# creates an agora channel with given name
+# adds the necessary documents to the voicechats collection for the given mails
+def assign_voicechat(mails, tweet_id, metric_id):
+    channel_name = str(random.randint(0, int(1e10)) + int(1e10))
+    # check if channel name exists
+    for mail in mails:
+        if db.voice_chats.find_one({"mail": mail}) is not None:
+            return
+    if db.voice_chats.find_one({"name": channel_name}) is not None:
+        return
+    token = generate_token(channel_name)
+    dt = datetime.now()
+    q_list = [{'name': channel_name, 'tweet_id': tweet_id, 'metric_id': metric_id, 'token': token, 'mail': mail, 'date': dt} for mail in mails]
+    db.voice_chats.insert_many(q_list)
 
 def sa():
     tweet_id = "1522567873742393344"
