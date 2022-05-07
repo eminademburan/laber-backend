@@ -179,26 +179,45 @@ def add_task():
         task_find = db.tasks.find_one({"_id": data["taskName"], "customerEmail": data['customerEmail']})
         if task_find is None:
             print("inside if")
-            db.tasks.insert_one({
-                "_id": data["taskName"],
-                'customerEmail': data['customerEmail'],
-                'keywords': data['keywords'],
-                'hashtags': data['hashtags'],
-                'scalarMetrics': data['scalarMetrics'],
-                'nonScalarMetrics': data['nonScalarMetrics'],
-                'isTwitterSelected': data['isTwitterSelected'],
-                'isFacebookSelected': data['isFacebookSelected'],
-                'startDate': data['startDate'],
-                'endDate': data['endDate'],
-                'minAge': data['minAge'],
-                'maxAge': data['maxAge'],
-                'isFemale': data['isFemale'],
-                'isMale': data['isMale'],
-                'isTransgender': data['isTransgender'],
-                'isGenderNeutral': data['isGenderNeutral'],
-                'isNonBinary': data['isNonBinary'],
-                'languages': data['languages']
-            })
+            if data['taskDataType'] == 0:  # Twitter
+                db.tasks.insert_one({
+                    "_id": data["taskName"],
+                    'customerEmail': data['customerEmail'],
+                    'keywords': data['keywords'],
+                    'hashtags': data['hashtags'],
+                    'scalarMetrics': data['scalarMetrics'],
+                    'nonScalarMetrics': data['nonScalarMetrics'],
+                    'isTwitterSelected': data['isTwitterSelected'],
+                    'isFacebookSelected': data['isFacebookSelected'],
+                    'startDate': data['startDate'],
+                    'endDate': data['endDate'],
+                    'minAge': data['minAge'],
+                    'maxAge': data['maxAge'],
+                    'isFemale': data['isFemale'],
+                    'isMale': data['isMale'],
+                    'isTransgender': data['isTransgender'],
+                    'isGenderNeutral': data['isGenderNeutral'],
+                    'isNonBinary': data['isNonBinary'],
+                    'languages': data['languages'],
+                    'taskDataType': data['taskDataType']
+                })
+            elif data['taskDataType'] == 1:  # Image Data
+                db.tasks.insert_one({
+                    "_id": data["taskName"],
+                    'customerEmail': data['customerEmail'],
+                    'scalarMetrics': data['scalarMetrics'],
+                    'nonScalarMetrics': data['nonScalarMetrics'],
+                    'minAge': data['minAge'],
+                    'maxAge': data['maxAge'],
+                    'isFemale': data['isFemale'],
+                    'isMale': data['isMale'],
+                    'isTransgender': data['isTransgender'],
+                    'isGenderNeutral': data['isGenderNeutral'],
+                    'isNonBinary': data['isNonBinary'],
+                    'languages': data['languages'],
+                    'dataLink': data['dataLink'],
+                    'taskDataType': data['taskDataType']
+                })
             print("after insert")
             search_keys = [*data['keywords'], *data['hashtags']]
             get_tweets_by_keyword_and_assign(search_keys, data['customerEmail'], data['taskName'])
@@ -209,6 +228,7 @@ def add_task():
     except:
         return jsonify(None)
 
+
 @application.route("/add_tweet/<string:tweet_id>/<string:text>/<int:noOfLike>/<string:tweetGroup>")
 @cross_origin()
 def add_tweet(tweet_id, text, noOfLike, tweetGroup):
@@ -217,6 +237,7 @@ def add_tweet(tweet_id, text, noOfLike, tweetGroup):
         return jsonify(message="success")
     except:
         return jsonify(message="failed")
+
 
 @application.route("/get_tweet/<string:tweet_id>/<string:task_id>")
 @cross_origin()
@@ -230,6 +251,7 @@ def get_tweet(tweet_id, task_id):
             return jsonify(tweet)
     except:
         return jsonify(None)
+
 
 @application.route("/get_task/<string:task_id>")
 @cross_origin()
@@ -389,6 +411,7 @@ def change_metric_type_from_obj_to_lst(all_task_answers):
    # print(lst_result)
     return lst_result
 
+
 @application.route("/add_response", methods=['POST'])
 @cross_origin()
 def add_response():
@@ -434,10 +457,12 @@ def clear_voicechat():
     except Exception as e:
         print(e)
 
+
 scheduler = BackgroundScheduler()
 scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=60)
 scheduler.add_job(func=clear_voicechat, trigger="interval", seconds=5)
 scheduler.start()
+
 
 # checks if there is a pending voicechat for a given responser, if there is returns channel name and token
 @application.route("/check_voicechat/<string:responser>")
