@@ -21,6 +21,7 @@ import voicechat
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
+from crosscheck import check_conflict
 from utils import date_diff_secs
 
 from voicechat.tokenizer import generate_token
@@ -422,6 +423,7 @@ def add_response():
             print(data["answers"])
             new_values = {"$set": {'answers': data["answers"], 'status': 'Answered', 'answerDate' : data["date"]}}
             db.answers.update_one(query, new_values)
+            check_conflict(data["tweet_id"])
             return jsonify(message="true")
     except:
         return jsonify(message="failed")
