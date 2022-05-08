@@ -19,8 +19,6 @@ import atexit
 
 import voicechat
 
-from apscheduler.schedulers.background import BackgroundScheduler
-
 from crosscheck import check_conflict, assign_voicechat
 from utils import date_diff_secs
 
@@ -484,10 +482,10 @@ def clear_voicechat():
         print(e)
 
 
-scheduler = BackgroundScheduler()
-scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=60)
-scheduler.add_job(func=clear_voicechat, trigger="interval", seconds=5)
-scheduler.start()
+# scheduler = BackgroundScheduler()
+# scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=60)
+# scheduler.add_job(func=clear_voicechat, trigger="interval", seconds=5)
+# scheduler.start()
 
 
 # checks if there is a pending voicechat for a given responser, if there is returns channel name and token
