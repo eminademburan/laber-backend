@@ -19,6 +19,7 @@ flask-jwt-extended = "*"
 python-dotenv = "*"
 numpy = "*"
 scipy = "*"
+flask_pymongo = "*"
 
 [dev-packages]
 
