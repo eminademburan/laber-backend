@@ -29,6 +29,7 @@ from voicechat.tokenizer import generate_token
 application = Flask(__name__)
 load_dotenv()
 application.config["JWT_SECRET_KEY"] = os.getenv('JWT_SECRET_KEY')
+application.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
 jwt = JWTManager(application)
 mongo = PyMongo(application,
                 uri="mongodb+srv://ademburan:proje1234@cluster0.9k20l.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
@@ -57,7 +58,11 @@ def auto_distribute_task():
             query_result = db.tasks.find_one(query2)
             responser_age_query_result = db.users.find_one({'_id': x})
             user_age = responser_age_query_result['age']
-            db.answers.insert_one(
+            if query_result is not None:
+                min_age = query_result['minAge']
+                max_age = query_result['maxAge']
+            if result is None and int(max_age) >= int(user_age) >= int(min_age):
+                db.answers.insert_one(
                     {'tweet_id': y[0], 'responser': x,
                      'owner_id': y[1], 'task_id': y[2], 'status': 'Waiting'})
 
@@ -480,8 +485,8 @@ def clear_voicechat():
 
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=15)
-scheduler.add_job(func=clear_voicechat, trigger="interval", seconds=60)
+scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=60)
+scheduler.add_job(func=clear_voicechat, trigger="interval", seconds=5)
 scheduler.start()
 
 
