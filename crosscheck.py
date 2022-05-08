@@ -169,22 +169,3 @@ def assign_voicechat(mails, tweet_id, metric_id):
     dt = datetime.now()
     q_list = [{'name': channel_name, 'tweet_id': tweet_id, 'metric_id': metric_id, 'token': token, 'mail': mail, 'date': dt} for mail in mails]
     db.voice_chats.insert_many(q_list)
-
-def sa():
-    tweet_id = "1522567873742393344"
-    # check_conflict(tweet_id)
-    X = [6, 7, 7, 12, 13, 13, 15, 16, 19, 22]
-    print(z_score(X))
-
-
-def post_conflict(task_id, tweet_id, mails):
-    query = {'task_id': task_id, 'tweet_id': tweet_id, 'mails': mails}
-    db.conflicts.insert_one(query)
-
-
-scheduler = BackgroundScheduler()
-scheduler.add_job(func=sa, trigger="interval", seconds=2)
-scheduler.start()
-
-if __name__ == '__main__':
-    application.run(host="0.0.0.0", port=5000)
