@@ -173,58 +173,85 @@ def add_task():
 
     # TODO: check whether all the required fields are supplied by the customer
 
-    try:
-        task_find = db.tasks.find_one({"_id": data["taskName"], "customerEmail": data['customerEmail']})
-        if task_find is None:
-            print("inside if")
-            if data['taskDataType'] == 0:  # Twitter
-                db.tasks.insert_one({
-                    "_id": data["taskName"],
-                    'customerEmail': data['customerEmail'],
-                    'keywords': data['keywords'],
-                    'hashtags': data['hashtags'],
-                    'scalarMetrics': data['scalarMetrics'],
-                    'nonScalarMetrics': data['nonScalarMetrics'],
-                    'isTwitterSelected': data['isTwitterSelected'],
-                    'isFacebookSelected': data['isFacebookSelected'],
-                    'startDate': data['startDate'],
-                    'endDate': data['endDate'],
-                    'minAge': data['minAge'],
-                    'maxAge': data['maxAge'],
-                    'isFemale': data['isFemale'],
-                    'isMale': data['isMale'],
-                    'isTransgender': data['isTransgender'],
-                    'isGenderNeutral': data['isGenderNeutral'],
-                    'isNonBinary': data['isNonBinary'],
-                    'languages': data['languages'],
-                    'taskDataType': data['taskDataType']
-                })
-            elif data['taskDataType'] == 1:  # Image Data
-                db.tasks.insert_one({
-                    "_id": data["taskName"],
-                    'customerEmail': data['customerEmail'],
-                    'scalarMetrics': data['scalarMetrics'],
-                    'nonScalarMetrics': data['nonScalarMetrics'],
-                    'minAge': data['minAge'],
-                    'maxAge': data['maxAge'],
-                    'isFemale': data['isFemale'],
-                    'isMale': data['isMale'],
-                    'isTransgender': data['isTransgender'],
-                    'isGenderNeutral': data['isGenderNeutral'],
-                    'isNonBinary': data['isNonBinary'],
-                    'languages': data['languages'],
-                    'dataLink': data['dataLink'],
-                    'taskDataType': data['taskDataType']
-                })
-            print("after insert")
+
+    task_find = db.tasks.find_one({"_id": data["taskName"], "customerEmail": data['customerEmail']})
+    if task_find is None:
+        print("inside if")
+        print("inside if data", data)
+        if data['taskDataType'] == 0:  # Twitter
+            db.tasks.insert_one({
+                "_id": data["taskName"],
+                'customerEmail': data['customerEmail'],
+                'keywords': data['keywords'],
+                'hashtags': data['hashtags'],
+                'scalarMetrics': data['scalarMetrics'],
+                'nonScalarMetrics': data['nonScalarMetrics'],
+                'isTwitterSelected': data['isTwitterSelected'],
+                'isFacebookSelected': data['isFacebookSelected'],
+                'startDate': data['startDate'],
+                'endDate': data['endDate'],
+                'minAge': data['minAge'],
+                'maxAge': data['maxAge'],
+                'isFemale': data['isFemale'],
+                'isMale': data['isMale'],
+                'isTransgender': data['isTransgender'],
+                'isGenderNeutral': data['isGenderNeutral'],
+                'isNonBinary': data['isNonBinary'],
+                'languages': data['languages'],
+                'taskDataType': data['taskDataType']
+            })
             search_keys = [*data['keywords'], *data['hashtags']]
             get_tweets_by_keyword_and_assign(search_keys, data['customerEmail'], data['taskName'])
-            return jsonify(None)
-        else:
-            print("task could not be created!")
-            return jsonify(task_find)
-    except:
+        elif data['taskDataType'] == 1:  # Image Data
+            print("in elif")
+            print("data: ", data.keys())
+            # add task
+            db.tasks.insert_one({
+                "_id": data["taskName"],
+                'customerEmail': data['customerEmail'],
+                'scalarMetrics': data['scalarMetrics'],
+                'nonScalarMetrics': data['nonScalarMetrics'],
+                'minAge': data['minAge'],
+                'maxAge': data['maxAge'],
+                'isFemale': data['isFemale'],
+                'isMale': data['isMale'],
+                'isTransgender': data['isTransgender'],
+                'isGenderNeutral': data['isGenderNeutral'],
+                'isNonBinary': data['isNonBinary'],
+                'languages': data['languages'],
+                'taskDataType': data['taskDataType']
+            })
+            # add images
+            images = []
+            for image_base64 in data['zipFile']:
+                images.append({
+                    '_id': str(random.randint(0, int(1e10)) + int(1e10)),
+                    'url': image_base64,
+                    'owner_id': data['customerEmail'],
+                    'task_id': data['taskName']
+                })
+            db.tweets.insert_many(images)
+            # db.tasks.insert_one({
+            #     "_id": data["taskName"],
+            #     'customerEmail': data['customerEmail'],
+            #     'scalarMetrics': data['scalarMetrics'],
+            #     'nonScalarMetrics': data['nonScalarMetrics'],
+            #     'minAge': data['minAge'],
+            #     'maxAge': data['maxAge'],
+            #     'isFemale': data['isFemale'],
+            #     'isMale': data['isMale'],
+            #     'isTransgender': data['isTransgender'],
+            #     'isGenderNeutral': data['isGenderNeutral'],
+            #     'isNonBinary': data['isNonBinary'],
+            #     'languages': data['languages'],
+            #     'dataLink': data['dataLink'],
+            #     'taskDataType': data['taskDataType']
+            # })
+        print("after insert")
         return jsonify(None)
+    else:
+        print("task could not be created!")
+        return jsonify(task_find)
 
 
 @application.route("/add_tweet/<string:tweet_id>/<string:text>/<int:noOfLike>/<string:tweetGroup>")
@@ -296,18 +323,23 @@ def get_customer_tasks(customer_email):
         atleast_one_customer_task_exists = True
         task_scalar_answers = {}
         task_nonscalar_answers = {}
-        for scalar_answer in customer_task['scalarMetrics']:
-            task_scalar_answers[scalar_answer['name']] = 0
 
-        for nonscalar_answer in customer_task['nonScalarMetrics']:
-            task_nonscalar_answers[nonscalar_answer['name']] = {}
-            task_nonscalar_answers_metric_keys = {}
-            for nonscalar_metric_key in nonscalar_answer['metricKeys']:
-                task_nonscalar_answers_metric_keys[nonscalar_metric_key] = 0
-            task_nonscalar_answers[nonscalar_answer['name']] = task_nonscalar_answers_metric_keys
+        # if we have at least one answer for the task
+        an_answer_to_the_task = db.answers.find_one({'task_id': customer_task['_id'], 'status': 'Answered'})
+        if an_answer_to_the_task is not None:
+            for scalar_answer in customer_task['scalarMetrics']:
+                print("scalar answer in for: ", customer_task['_id'], " :: ", scalar_answer)
+                task_scalar_answers[scalar_answer['name']] = 0
 
-        scalar_and_nonscalar_combined = {'scalar': task_scalar_answers, 'nonscalar': task_nonscalar_answers}
-        all_task_answers[customer_task['_id']] = scalar_and_nonscalar_combined
+            for nonscalar_answer in customer_task['nonScalarMetrics']:
+                task_nonscalar_answers[nonscalar_answer['name']] = {}
+                task_nonscalar_answers_metric_keys = {}
+                for nonscalar_metric_key in nonscalar_answer['metricKeys']:
+                    task_nonscalar_answers_metric_keys[nonscalar_metric_key] = 0
+                task_nonscalar_answers[nonscalar_answer['name']] = task_nonscalar_answers_metric_keys
+
+            scalar_and_nonscalar_combined = {'scalar': task_scalar_answers, 'nonscalar': task_nonscalar_answers}
+            all_task_answers[customer_task['_id']] = scalar_and_nonscalar_combined
 
    # print("all task answers: ", all_task_answers)
 
@@ -322,38 +354,41 @@ def get_customer_tasks(customer_email):
         for answer_to_task in db.answers.find(get_task_answers_query, projection):
             # print(answer_to_task)
 
-            response_count += 1
+
             # responer, task_name
             # responser_answer_count_to_task_name = db.answers.find({'responser': answer_to_task['responser'], 'task_id': task_name}).count()
             # response_count += responser_answer_count_to_task_name
-
+            print("answer to task: ", answer_to_task)
             # get answers for nonscalar metrics
-            nonscalar_metric_count_for_task_name = len(all_task_answers[task_name]['nonscalar'])
-            for index in range(nonscalar_metric_count_for_task_name):
-                count = 0
-                for non_scalar_key in all_task_answers[task_name]['nonscalar']:
-                    if index == count:
-                        answer = answer_to_task['answers'][index]
-                        all_task_answers[task_name]['nonscalar'][non_scalar_key][answer] += 1
-                    count += 1
+
+            if len(answer_to_task['answers']):
+                response_count += 1
+                nonscalar_metric_count_for_task_name = len(all_task_answers[task_name]['nonscalar'])
+                for index in range(nonscalar_metric_count_for_task_name):
+                    count = 0
+                    for non_scalar_key in all_task_answers[task_name]['nonscalar']:
+                        if index == count:
+                            answer = answer_to_task['answers'][index]
+                            all_task_answers[task_name]['nonscalar'][non_scalar_key][answer] += 1
+                        count += 1
 
 
 
-            # get answers for scalar metrics and increment count
-            scalar_metric_count_for_task_name = len(all_task_answers[task_name]['scalar'])
-            for index in range(nonscalar_metric_count_for_task_name, scalar_metric_count_for_task_name + nonscalar_metric_count_for_task_name):
-                # print("index: ", index)
-                # print("answers: ", answer_to_task['answers'])
+                # get answers for scalar metrics and increment count
+                scalar_metric_count_for_task_name = len(all_task_answers[task_name]['scalar'])
+                for index in range(nonscalar_metric_count_for_task_name, scalar_metric_count_for_task_name + nonscalar_metric_count_for_task_name):
+                    # print("index: ", index)
+                    # print("answers: ", answer_to_task['answers'])
 
-                count = nonscalar_metric_count_for_task_name
-                for scalar_key in all_task_answers[task_name]['scalar']:
-                    if index == count:
-                        answer = answer_to_task['answers'][index]
-                        all_task_answers[task_name]['scalar'][scalar_key] += int(answer)
-                    count += 1
+                    count = nonscalar_metric_count_for_task_name
+                    for scalar_key in all_task_answers[task_name]['scalar']:
+                        if index == count:
+                            answer = answer_to_task['answers'][index]
+                            all_task_answers[task_name]['scalar'][scalar_key] += int(answer)
+                        count += 1
 
-                # print("date type: ", type(answer_to_task['answerDate']))
-                # print("answers type: ", type(answer_to_task['answers']))
+                    # print("date type: ", type(answer_to_task['answerDate']))
+                    # print("answers type: ", type(answer_to_task['answers']))
 
         # go through scalar tasks in task with the 'task_name' and
         # divide the results by the responser count
@@ -379,6 +414,7 @@ def get_customer_tasks(customer_email):
         return jsonify(all_task_answers)
 
 
+# if the answer is empty remove from the list
 def change_metric_type_from_obj_to_lst(all_task_answers):
     lst_result = all_task_answers
 
@@ -420,8 +456,7 @@ def add_response():
             return jsonify(message="failed")
         else:
             query = {'tweet_id': data["tweet_id"], 'responser': data["mail"], 'task_id' : data["task_id"]}
-            print(data["answers"])
-            new_values = {"$set": {'answers': data["answers"], 'status': 'Answered', 'answerDate' : data["date"]}}
+            new_values = {"$set": {'answers': data["answers"], 'status': 'Answered', 'answerDate': data["date"]}}
             db.answers.update_one(query, new_values)
             check_conflict(data["tweet_id"])
             return jsonify(message="true")
@@ -434,11 +469,11 @@ def clear_voicechat():
     now = datetime.now()
     to_delete = []
     try:
-        for row in db.voice_chats.find():
+        for row in db.voicechats.find():
             date = row['date']
-            if date_diff_secs(date, now) > 240:
+            if date_diff_secs(date, now) > 1:
                 to_delete.append(row['_id'])
-        db.voice_chats.delete_many({'_id': {'$in' : to_delete}})
+        db.voicechats.delete_many({'_id': {'$in' : to_delete}})
 
     except Exception as e:
         print(e)
@@ -455,14 +490,8 @@ scheduler.start()
 @cross_origin()
 def check_voicechat(responser):
     query = {'mail': responser}
-    projection = {'_id': 0, 'name': 1, 'tweet_id': 1, 'token': 1}
-    channel = db.voice_chats.find_one(query, projection)
-    tweet_id = channel['tweet_id']
-    query2 = {'_id': tweet_id}
-    query3 = {'status': 'Answered'}
-    channel['url'] = db.tweets.find_one(query2)['url']
-    channel['answer'] = db.answers.find_one(query3)['answers'][0]
-    pass
+    projection = {'_id': 0, 'name': 1, 'token': 1}
+    channel = db.voicechats.find_one(query, projection)
     if channel is None:
         return jsonify(None)
     else:
