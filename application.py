@@ -15,6 +15,8 @@ import json
 import scrapper
 import time
 import atexit
+import random
+from datetime import timedelta
 
 import voicechat
 
@@ -27,6 +29,7 @@ from voicechat.tokenizer import generate_token
 application = Flask(__name__)
 load_dotenv()
 application.config["JWT_SECRET_KEY"] = os.getenv('JWT_SECRET_KEY')
+application.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
 jwt = JWTManager(application)
 mongo = PyMongo(application,
                 uri="mongodb+srv://ademburan:proje1234@cluster0.9k20l.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
@@ -175,59 +178,85 @@ def add_task():
 
     # TODO: check whether all the required fields are supplied by the customer
 
-    try:
-        task_find = db.tasks.find_one({"_id": data["taskName"], "customerEmail": data['customerEmail']})
-        if task_find is None:
-            print("inside if")
-            print("inside if data", data)
-            if data['taskDataType'] == 0:  # Twitter
-                db.tasks.insert_one({
-                    "_id": data["taskName"],
-                    'customerEmail': data['customerEmail'],
-                    'keywords': data['keywords'],
-                    'hashtags': data['hashtags'],
-                    'scalarMetrics': data['scalarMetrics'],
-                    'nonScalarMetrics': data['nonScalarMetrics'],
-                    'isTwitterSelected': data['isTwitterSelected'],
-                    'isFacebookSelected': data['isFacebookSelected'],
-                    'startDate': data['startDate'],
-                    'endDate': data['endDate'],
-                    'minAge': data['minAge'],
-                    'maxAge': data['maxAge'],
-                    'isFemale': data['isFemale'],
-                    'isMale': data['isMale'],
-                    'isTransgender': data['isTransgender'],
-                    'isGenderNeutral': data['isGenderNeutral'],
-                    'isNonBinary': data['isNonBinary'],
-                    'languages': data['languages'],
-                    'taskDataType': data['taskDataType']
-                })
-            elif data['taskDataType'] == 1:  # Image Data
-                db.tasks.insert_one({
-                    "_id": data["taskName"],
-                    'customerEmail': data['customerEmail'],
-                    'scalarMetrics': data['scalarMetrics'],
-                    'nonScalarMetrics': data['nonScalarMetrics'],
-                    'minAge': data['minAge'],
-                    'maxAge': data['maxAge'],
-                    'isFemale': data['isFemale'],
-                    'isMale': data['isMale'],
-                    'isTransgender': data['isTransgender'],
-                    'isGenderNeutral': data['isGenderNeutral'],
-                    'isNonBinary': data['isNonBinary'],
-                    'languages': data['languages'],
-                    'dataLink': data['dataLink'],
-                    'taskDataType': data['taskDataType']
-                })
-            print("after insert")
+
+    task_find = db.tasks.find_one({"_id": data["taskName"], "customerEmail": data['customerEmail']})
+    if task_find is None:
+        print("inside if")
+        print("inside if data", data)
+        if data['taskDataType'] == 0:  # Twitter
+            db.tasks.insert_one({
+                "_id": data["taskName"],
+                'customerEmail': data['customerEmail'],
+                'keywords': data['keywords'],
+                'hashtags': data['hashtags'],
+                'scalarMetrics': data['scalarMetrics'],
+                'nonScalarMetrics': data['nonScalarMetrics'],
+                'isTwitterSelected': data['isTwitterSelected'],
+                'isFacebookSelected': data['isFacebookSelected'],
+                'startDate': data['startDate'],
+                'endDate': data['endDate'],
+                'minAge': data['minAge'],
+                'maxAge': data['maxAge'],
+                'isFemale': data['isFemale'],
+                'isMale': data['isMale'],
+                'isTransgender': data['isTransgender'],
+                'isGenderNeutral': data['isGenderNeutral'],
+                'isNonBinary': data['isNonBinary'],
+                'languages': data['languages'],
+                'taskDataType': data['taskDataType']
+            })
             search_keys = [*data['keywords'], *data['hashtags']]
             get_tweets_by_keyword_and_assign(search_keys, data['customerEmail'], data['taskName'])
-            return jsonify(None)
-        else:
-            print("task could not be created!")
-            return jsonify(task_find)
-    except:
+        elif data['taskDataType'] == 1:  # Image Data
+            print("in elif")
+            print("data: ", data.keys())
+            # add task
+            db.tasks.insert_one({
+                "_id": data["taskName"],
+                'customerEmail': data['customerEmail'],
+                'scalarMetrics': data['scalarMetrics'],
+                'nonScalarMetrics': data['nonScalarMetrics'],
+                'minAge': data['minAge'],
+                'maxAge': data['maxAge'],
+                'isFemale': data['isFemale'],
+                'isMale': data['isMale'],
+                'isTransgender': data['isTransgender'],
+                'isGenderNeutral': data['isGenderNeutral'],
+                'isNonBinary': data['isNonBinary'],
+                'languages': data['languages'],
+                'taskDataType': data['taskDataType']
+            })
+            # add images
+            images = []
+            for image_base64 in data['zipFile']:
+                images.append({
+                    '_id': str(random.randint(0, int(1e10)) + int(1e10)),
+                    'url': image_base64,
+                    'owner_id': data['customerEmail'],
+                    'task_id': data['taskName']
+                })
+            db.tweets.insert_many(images)
+            # db.tasks.insert_one({
+            #     "_id": data["taskName"],
+            #     'customerEmail': data['customerEmail'],
+            #     'scalarMetrics': data['scalarMetrics'],
+            #     'nonScalarMetrics': data['nonScalarMetrics'],
+            #     'minAge': data['minAge'],
+            #     'maxAge': data['maxAge'],
+            #     'isFemale': data['isFemale'],
+            #     'isMale': data['isMale'],
+            #     'isTransgender': data['isTransgender'],
+            #     'isGenderNeutral': data['isGenderNeutral'],
+            #     'isNonBinary': data['isNonBinary'],
+            #     'languages': data['languages'],
+            #     'dataLink': data['dataLink'],
+            #     'taskDataType': data['taskDataType']
+            # })
+        print("after insert")
         return jsonify(None)
+    else:
+        print("task could not be created!")
+        return jsonify(task_find)
 
 
 @application.route("/add_tweet/<string:tweet_id>/<string:text>/<int:noOfLike>/<string:tweetGroup>")
