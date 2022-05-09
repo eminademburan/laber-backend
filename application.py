@@ -31,8 +31,7 @@ load_dotenv()
 application.config["JWT_SECRET_KEY"] = os.getenv('JWT_SECRET_KEY')
 application.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
 jwt = JWTManager(application)
-mongo = PyMongo(application,
-                uri="mongodb+srv://ademburan:proje1234@cluster0.9k20l.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
+mongo = PyMongo(application, uri="mongodb+srv://ademburan:proje1234@cluster0.9k20l.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
 db = mongo.db
 CORS(application)
 api = Api(application)
@@ -118,6 +117,8 @@ def add_customer():
             return jsonify(message="failed")
     except:
         return jsonify(message="failed")
+
+
 
 
 # Create a route to authenticate your users and return JWTs. The
@@ -268,6 +269,38 @@ def add_tweet(tweet_id, text, noOfLike, tweetGroup):
     except:
         return jsonify(message="failed")
 
+@application.route("/get_jsondata", methods=['POST'])
+@cross_origin()
+def get_rawData():
+    data = request.json
+    try:
+        query = { "task_id" : data["taskName"]}
+        query2 = { "_id" : data["taskName"] }
+        db.answers.find({'_id': tweet_id, 'text': text, 'likes': noOfLike, 'owner_id': tweetGroup})
+        return jsonify(message="success")
+    except:
+        return jsonify(message="failed")
+
+@application.route("/get_answers_in_json", methods=['POST'])
+@jwt_required()
+@cross_origin()
+def get_answers_in_json():
+    try:
+        data = request.json
+
+        query = {"task_id": data["taskName"], "status" : "Answered"}
+        query2 = {"_id": data["taskName"]}
+        projection = { "_id" :0, "owner_id" : 0, "status" : 0 }
+        result = db.tasks.find_one(query2)
+
+        if result["taskDataType"] == 1:
+            jsonresult = db.answers.find( query, projection)
+            return jsonify(jsonresult)
+        else:
+            return jsonify(None)
+    except:
+        return jsonify(None)
+
 
 @application.route("/get_tweet/<string:tweet_id>/<string:task_id>")
 @cross_origin()
@@ -278,7 +311,8 @@ def get_tweet(tweet_id, task_id):
         if tweet is None:
             return jsonify(None)
         else:
-            return jsonify(tweet)
+            print(tweet["url"][:20])
+            return tweet["url"]
     except:
         return jsonify(None)
 
