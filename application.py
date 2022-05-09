@@ -1,5 +1,4 @@
-import random
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from flask import Flask, jsonify, request
 from flask_restful import Api, Resource, reqparse
@@ -16,6 +15,8 @@ import json
 import scrapper
 import time
 import atexit
+import random
+from datetime import timedelta
 
 import voicechat
 
@@ -204,7 +205,7 @@ def add_task():
                 'taskDataType': data['taskDataType']
             })
             search_keys = [*data['keywords'], *data['hashtags']]
-            get_tweets_by_keyword_and_assign(search_keys, data['customerEmail'], data['taskName'])
+            get_tweets_by_keyword_and_assign(search_keys, data['startDate'], data['endDate'], data['customerEmail'], data['taskName'])
         elif data['taskDataType'] == 1:  # Image Data
             print("in elif")
             print("data: ", data.keys())
@@ -226,12 +227,13 @@ def add_task():
             })
             # add images
             images = []
-            for image_base64 in data['zipFile']:
+            for index, image_base64 in enumerate(data['zipFile']):
                 images.append({
                     '_id': str(random.randint(0, int(1e10)) + int(1e10)),
                     'url': image_base64,
                     'owner_id': data['customerEmail'],
-                    'task_id': data['taskName']
+                    'task_id': data['taskName'],
+                    'image_name': 'image'+str(index)+".jpg",
                 })
             db.tweets.insert_many(images)
             # db.tasks.insert_one({
@@ -267,6 +269,42 @@ def add_tweet(tweet_id, text, noOfLike, tweetGroup):
         return jsonify(message="failed")
 
 
+@application.route("/get_jsondata", methods=['POST'])
+@cross_origin()
+def get_rawData():
+    data = request.json
+    try:
+        query = { "task_id" : data["taskName"]}
+        query2 = { "_id" : data["taskName"] }
+        db.answers.find({'_id': tweet_id, 'text': text, 'likes': noOfLike, 'owner_id': tweetGroup})
+        return jsonify(message="success")
+    except:
+        return jsonify(message="failed")
+
+
+@application.route("/get_answers_in_json", methods=['POST'])
+@jwt_required()
+@cross_origin()
+def get_answers_in_json():
+    try:
+        data = request.json
+        print(data)
+        query = {"task_id": data["taskName"], "status": "Answered"}
+        query2 = {"_id": data["taskName"]}
+        projection = { "_id": 0, "owner_id": 0, "status": 0}
+        result = db.tasks.find_one(query2)
+        dict = {}
+        if result["taskDataType"] == 1:
+            for task in db.answers.find(query, projection):
+                dict[task['image_name']] = task
+            print(dict)
+            return jsonify(dict)
+        else:
+            return jsonify(None)
+    except:
+        return jsonify(None)
+
+
 @application.route("/get_tweet/<string:tweet_id>/<string:task_id>")
 @cross_origin()
 def get_tweet(tweet_id, task_id):
@@ -276,7 +314,7 @@ def get_tweet(tweet_id, task_id):
         if tweet is None:
             return jsonify(None)
         else:
-            return jsonify(tweet)
+            return tweet["url"]
     except:
         return jsonify(None)
 
@@ -370,8 +408,9 @@ def get_customer_tasks(customer_email):
                 for index in range(nonscalar_metric_count_for_task_name):
                     count = 0
                     for non_scalar_key in all_task_answers[task_name]['nonscalar']:
-                        if index == count:
+                        if index == count and len(answer_to_task['answers']):
                             answer = answer_to_task['answers'][index]
+                            print("key: ", all_task_answers[task_name]['nonscalar'][non_scalar_key])
                             all_task_answers[task_name]['nonscalar'][non_scalar_key][answer] += 1
                         count += 1
 
@@ -453,16 +492,44 @@ def change_metric_type_from_obj_to_lst(all_task_answers):
 @cross_origin()
 def add_response():
     data = request.json
+    try:
+        query = {'status': "Waiting", 'tweet_id': data["tweet_id"], 'responser': data["mail"], 'task_id' : data["task_id"]}
+        if db.answers.find_one(query) is None:
+            return jsonify(message="failed")
+        else:
+            query2 = { "_id" : data["task_id"]}
+            result = db.tasks.find_one(query2)
 
-    query = {'status': "Waiting", 'tweet_id': data["tweet_id"], 'responser': data["mail"], 'task_id': data["task_id"]}
-    if db.answers.find_one(query) is None:
+            sum = 0
+            if result is not None:
+                sum = len(result["scalarMetrics"]) + len(result["nonScalarMetrics"])
+
+            if len(data["answers"]) == 0 or sum != len(data["answers"]):
+                return jsonify(message="true")
+            for data2 in data["answers"]:
+                if data2 is None:
+                    return jsonify(message="true")
+            query = {'tweet_id': data["tweet_id"], 'responser': data["mail"], 'task_id': data["task_id"]}
+            new_values = {"$set": {'answers': data["answers"], 'status': 'Answered', 'answerDate': data["date"]}}
+            db.answers.update_one(query, new_values)
+            check_conflict(data["tweet_id"])
+            return jsonify(message="true")
+    except:
         return jsonify(message="failed")
-    else:
-        query = {'tweet_id': data["tweet_id"], 'responser': data["mail"], 'task_id': data["task_id"]}
-        new_values = {"$set": {'answers': data["answers"], 'status': 'Answered', 'answerDate': data["date"]}}
-        db.answers.update_one(query, new_values)
-        check_conflict(data["tweet_id"])
-        return jsonify(message="true")
+
+
+
+# creates an agora channel with given name
+# adds the necessary documents to the voicechats collection for the given mails
+def assign_voicechat(channel_name, mails):
+    channel_name = str(channel_name)
+    # check if channel name exists
+    if db.voicechats.find_one({"name": channel_name}) is not None:
+        return
+    token = generate_token(channel_name)
+    dt = datetime.now()
+    q_list = [{'name': channel_name, 'token': token, 'mail': mail, 'date': dt} for mail in mails]
+    db.voicechats.insert_many(q_list)
 
 
 # clears the channels older than 5 minutes from the collection
@@ -478,13 +545,6 @@ def clear_voicechat():
 
     except Exception as e:
         print(e)
-
-
-# scheduler = BackgroundScheduler()
-# scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=60)
-# scheduler.add_job(func=clear_voicechat, trigger="interval", seconds=5)
-# scheduler.start()
-
 
 # checks if there is a pending voicechat for a given responser, if there is returns channel name and token
 @application.route("/check_voicechat/<string:responser>")
@@ -510,6 +570,7 @@ def getTweet2(responser):
         return jsonify(None)
     else:
         return jsonify(tweet)
+
 
 
 @application.route("/assign_user/<string:tweet_id>/<string:responser>")
@@ -554,12 +615,12 @@ def get_tweets_by_keyword(search_key):
     return jsonify(message="true")
 
 
-def get_tweets_by_keyword_and_assign(search_key, owner_id, task_id):
+def get_tweets_by_keyword_and_assign(search_key, start_date, end_date, owner_id, task_id):
     for key in search_key:
-        tweet_attributes = scrapper.get_tweets(key)
+        tweet_attributes = scrapper.get_tweets(key, start_date, end_date)
 
         for tweet_id, tweet in tweet_attributes.items():
-            is_tweet_exist = db.tweets.find_one({"_id": tweet_id, 'owner_id': owner_id, 'task_id': task_id})
+            is_tweet_exist = db.tweets.find_one({"_id": str(tweet_id)})
             if is_tweet_exist is None:
                 db.tweets.insert_one({'_id': str(tweet_id), 'url': tweet, 'owner_id': owner_id, 'task_id': task_id})
 
