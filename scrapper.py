@@ -1,12 +1,20 @@
 import snscrape.modules.twitter as sntwitter
+from datetime import datetime
+from dateutil import parser
 
 
 # like, id, text
 # get tweets that have more than 10 likes
-def get_tweets(search_key):
-    search_key += " since:2022-04-02"
+def modify_date(date):
+    today_date = parser.parse(date)
+    return str(today_date.year)+'-'+str(today_date.month)+'-'+str(today_date.day)
+
+
+def get_tweets(search_key, start_date, end_date):
+    search_key += " since:" + modify_date(start_date) + " until:" + modify_date(end_date)
     my_tweets = {}
     counter = 0
+    print(search_key)
     for i, tweet in enumerate(sntwitter.TwitterSearchScraper(search_key).get_items()):
         if counter == 5:
             break

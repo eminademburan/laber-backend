@@ -165,33 +165,6 @@ def get_customer():
 #     except:
 #         return jsonify(None)
 
-@application.route("/get_answers_in_json/<string:taskName>")
-@jwt_required()
-@cross_origin()
-def get_answers_in_json(taskName):
-    result = []
-    print("in get answers in json: ", taskName)
-
-    task_from_database = db.tasks.find_one({'_id': taskName})
-    if task_from_database is not None:
-        result.append(task_from_database)
-
-    answers_to_task = db.answers.find({'task_id': taskName, 'status': 'Answered'})
-    is_any_answer = False
-    if answers_to_task is not None:
-        is_any_answer = True
-
-
-    for answer in answers_to_task:
-        result.append(answer)
-    print("result: ", result)
-    print(task_from_database)
-
-
-    if is_any_answer:
-        return jsonify(dict(result))
-    else:
-        return jsonify(None)
 
 
 @application.route("/add_task", methods=['POST'])
@@ -235,7 +208,7 @@ def add_task():
                 'taskDataType': data['taskDataType']
             })
             search_keys = [*data['keywords'], *data['hashtags']]
-            get_tweets_by_keyword_and_assign(search_keys, data['customerEmail'], data['taskName'])
+            get_tweets_by_keyword_and_assign(search_keys, data['startDate'], data['endDate'], data['customerEmail'], data['taskName'])
         elif data['taskDataType'] == 1:  # Image Data
             print("in elif")
             print("data: ", data.keys())
@@ -257,12 +230,13 @@ def add_task():
             })
             # add images
             images = []
-            for image_base64 in data['zipFile']:
+            for index, image_base64 in enumerate(data['zipFile']):
                 images.append({
                     '_id': str(random.randint(0, int(1e10)) + int(1e10)),
                     'url': image_base64,
                     'owner_id': data['customerEmail'],
-                    'task_id': data['taskName']
+                    'task_id': data['taskName'],
+                    'image_name': 'image'+str(index)+".jpg",
                 })
             db.tweets.insert_many(images)
             # db.tasks.insert_one({
@@ -297,6 +271,7 @@ def add_tweet(tweet_id, text, noOfLike, tweetGroup):
     except:
         return jsonify(message="failed")
 
+
 @application.route("/get_jsondata", methods=['POST'])
 @cross_origin()
 def get_rawData():
@@ -309,20 +284,24 @@ def get_rawData():
     except:
         return jsonify(message="failed")
 
+
 @application.route("/get_answers_in_json", methods=['POST'])
+@jwt_required()
 @cross_origin()
 def get_answers_in_json():
     try:
         data = request.json
         print(data)
-        query = {"task_id": data["taskName"], "status" : "Answered"}
+        query = {"task_id": data["taskName"], "status": "Answered"}
         query2 = {"_id": data["taskName"]}
-        projection = { "_id" :0, "owner_id" : 0, "status" : 0 }
+        projection = { "_id": 0, "owner_id": 0, "status": 0}
         result = db.tasks.find_one(query2)
-
+        dict = {}
         if result["taskDataType"] == 1:
-            jsonresult = db.answers.find( query, projection)
-            return jsonify(jsonresult)
+            for task in db.answers.find(query, projection):
+                dict[task['image_name']] = task
+            print(dict)
+            return jsonify(dict)
         else:
             return jsonify(None)
     except:
@@ -634,12 +613,12 @@ def get_tweets_by_keyword(search_key):
     return jsonify(message="true")
 
 
-def get_tweets_by_keyword_and_assign(search_key, owner_id, task_id):
+def get_tweets_by_keyword_and_assign(search_key, start_date, end_date, owner_id, task_id):
     for key in search_key:
-        tweet_attributes = scrapper.get_tweets(key)
+        tweet_attributes = scrapper.get_tweets(key, start_date, end_date)
 
         for tweet_id, tweet in tweet_attributes.items():
-            is_tweet_exist = db.tweets.find_one({"_id": tweet_id, 'owner_id': owner_id, 'task_id': task_id})
+            is_tweet_exist = db.tweets.find_one({"_id": str(tweet_id)})
             if is_tweet_exist is None:
                 db.tweets.insert_one({'_id': str(tweet_id), 'url': tweet, 'owner_id': owner_id, 'task_id': task_id})
 
