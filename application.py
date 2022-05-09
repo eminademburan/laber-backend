@@ -412,8 +412,9 @@ def get_customer_tasks(customer_email):
                 for index in range(nonscalar_metric_count_for_task_name):
                     count = 0
                     for non_scalar_key in all_task_answers[task_name]['nonscalar']:
-                        if index == count:
+                        if index == count and len(answer_to_task['answers']):
                             answer = answer_to_task['answers'][index]
+                            print("key: ", all_task_answers[task_name]['nonscalar'][non_scalar_key])
                             all_task_answers[task_name]['nonscalar'][non_scalar_key][answer] += 1
                         count += 1
 
@@ -501,6 +502,8 @@ def add_response():
         if db.answers.find_one(query) is None:
             return jsonify(message="failed")
         else:
+            if len(data["answers"]) == 0:
+                return jsonify(message="true")
             query = {'tweet_id': data["tweet_id"], 'responser': data["mail"], 'task_id' : data["task_id"]}
             new_values = {"$set": {'answers': data["answers"], 'status': 'Answered', 'answerDate': data["date"]}}
             db.answers.update_one(query, new_values)
