@@ -37,9 +37,9 @@ api = Api(application)
 
 
 def z_score(answers):
-    mean = np.mean(answers, axis=1, keepdims=True)
-    std = np.std(answers, axis=1, keepdims=True)
-    return (answers - mean) / std
+    mean = np.mean(answers, axis=1)
+    std = np.std(answers, axis=1)
+    return (answers - mean) / (1+std)
 
 def get_metrics(task_id):
     query = {"_id": task_id}
@@ -57,19 +57,21 @@ ROOM_SIZE = 5
 ENTROPY_THRESHOLD = 0.5
 
 def check_nonscalar(answers):
-    entropies = entropy(answers)
+    #entropies = entropy(answers, axis=1)
     num_metrics = answers.shape[0]
     num_experts = answers.shape[1]
+    entropies = np.ones((num_metrics, 1))
 
     # No need for a voice chat for metrics without many diversity
     satisfied = np.greater(entropies, ENTROPY_THRESHOLD)
+    sorted_experts = np.argsort(answers, axis=1)
 
-    experts = np.arange(min(ROOM_SIZE, num_experts))
-    chosen_experts = np.zeros((num_metrics, num_experts))
-    for i in range(num_metrics):
-        chosen_experts[i] = experts
+    # experts = np.arange(min(ROOM_SIZE, num_experts))
+    # chosen_experts = np.zeros((num_metrics, num_experts))
+    # for i in range(num_metrics):
+    #     chosen_experts[i] = experts
 
-    return chosen_experts, satisfied
+    return sorted_experts, satisfied
 
 def check_scalar(answers):
     # all the answers for all the metrics of a tweet are given
@@ -87,16 +89,19 @@ def check_scalar(answers):
 
     # No need for a voice chat for metrics without outliers
     satisfied = np.logical_or(np.less(mins, -1), np.greater(maxes, 1))
-    # satisfying_rows = np.flatnonzero(satisfied)
-
+    satisfying_rows = np.flatnonzero(satisfied)
     sorted_experts = np.argsort(z_scores, axis=1)
-    leftmosts = sorted_experts[ROOM_SIZE//2:]
-    middle = sorted_experts[sorted_experts.shape[0]//2]
-    rightmosts = sorted_experts[:ROOM_SIZE//2]
 
-    chosen_experts = np.concatenate((leftmosts, middle, rightmosts), axis=1)
+    #if satisfying_rows.shape[0] >= 1:
+    return sorted_experts, satisfied
 
-    return chosen_experts, satisfied
+    # leftmosts = sorted_experts[ROOM_SIZE//2:]
+    # middle = sorted_experts[sorted_experts.shape[0]//2]
+    # rightmosts = sorted_experts[:ROOM_SIZE//2]
+    #
+    # chosen_experts = np.concatenate((leftmosts, middle, rightmosts), axis=1)
+    #
+    # return chosen_experts, satisfied
 
 def get_response_rate(tweet_id):
     query = {"tweet_id": tweet_id}
@@ -140,24 +145,47 @@ def check_conflict(tweet_id):
     # nonscalar_answers = [answer[n:] for answer in answers]
 
     responsers = [row["responser"] for row in answers_db]
+    if len(responsers) > 1:
+        assign_voicechat(responsers, tweet_id)
 
-    answers = np.array(answers).T
-    nonscalar_answers = answers[:, n:]
-    scalar_answers = answers[:, :n]
+    # for i in range(len(answers)):
+    #     hashed_answers = []
+    #     for j in range(len(answers[i])):
+    #         hashed_answers.append(hash(answers[i][j]))
+    #     answers[i] = hashed_answers
+    #
+    # answers = np.array(answers)
+    # answers = np.asmatrix(answers).T
+    nonscalar_answers = answers[:, :n]
+    scalar_answers = answers[:, n:]
 
-    chosen_experts, satisfied = np.concatenate((check_nonscalar(nonscalar_answers),
-                                                check_scalar(scalar_answers)), axis=0)
+    print("here")
+    # chosen_experts, satisfied = np.concatenate((check_nonscalar(nonscalar_answers),
+    #                                             check_scalar(scalar_answers)), axis=0)
 
-    for i in range(chosen_experts):
-        if satisfied[i]:
-            mails = []
-            for j in range(chosen_experts[i]):
-                mails.append(responsers[j])
-                assign_voicechat(mails, tweet_id, metric_id=i)
 
+    # chosen_experts, satisfied = check_nonscalar(nonscalar_answers)
+    #
+    # for i in range(chosen_experts.shape[0]):
+    #     if satisfied[i]:
+    #         mails = []
+    #         for j in range(chosen_experts[i].shape[0]):
+    #             mails.append(responsers[j])
+    #             assign_voicechat(mails, tweet_id, metric_id=i)
+    #             print(mails)
+    #
+    # chosen_experts, satisfied = check_scalar(scalar_answers)
+    #
+    # for i in range(chosen_experts.shape[0]):
+    #     if satisfied[i]:
+    #         mails = []
+    #         for j in range(chosen_experts[i].shape[0]):
+    #             mails.append(responsers[j])
+    #             assign_voicechat(mails, tweet_id, metric_id=i)
+    #             print(mails)
 # creates an agora channel with given name
 # adds the necessary documents to the voicechats collection for the given mails
-def assign_voicechat(mails, tweet_id, metric_id):
+def assign_voicechat(mails, tweet_id):
     channel_name = str(random.randint(0, int(1e10)) + int(1e10))
     # check if channel name exists
     for mail in mails:
@@ -167,5 +195,6 @@ def assign_voicechat(mails, tweet_id, metric_id):
         return
     token = generate_token(channel_name)
     dt = datetime.now()
-    q_list = [{'name': channel_name, 'tweet_id': tweet_id, 'metric_id': metric_id, 'token': token, 'mail': mail, 'date': dt} for mail in mails]
+    q_list = [{'name': channel_name, 'tweet_id': tweet_id, 'token': token, 'mail': mail, 'date': dt} for mail in mails]
+    print(q_list)
     db.vchats.insert_many(q_list)

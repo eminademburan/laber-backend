@@ -453,18 +453,16 @@ def change_metric_type_from_obj_to_lst(all_task_answers):
 @cross_origin()
 def add_response():
     data = request.json
-    try:
-        query = {'status': "Waiting", 'tweet_id': data["tweet_id"], 'responser': data["mail"], 'task_id' : data["task_id"]}
-        if db.answers.find_one(query) is None:
-            return jsonify(message="failed")
-        else:
-            query = {'tweet_id': data["tweet_id"], 'responser': data["mail"], 'task_id' : data["task_id"]}
-            new_values = {"$set": {'answers': data["answers"], 'status': 'Answered', 'answerDate': data["date"]}}
-            db.answers.update_one(query, new_values)
-            check_conflict(data["tweet_id"])
-            return jsonify(message="true")
-    except:
+
+    query = {'status': "Waiting", 'tweet_id': data["tweet_id"], 'responser': data["mail"], 'task_id': data["task_id"]}
+    if db.answers.find_one(query) is None:
         return jsonify(message="failed")
+    else:
+        query = {'tweet_id': data["tweet_id"], 'responser': data["mail"], 'task_id': data["task_id"]}
+        new_values = {"$set": {'answers': data["answers"], 'status': 'Answered', 'answerDate': data["date"]}}
+        db.answers.update_one(query, new_values)
+        check_conflict(data["tweet_id"])
+        return jsonify(message="true")
 
 
 # clears the channels older than 5 minutes from the collection
@@ -472,11 +470,11 @@ def clear_voicechat():
     now = datetime.now()
     to_delete = []
     try:
-        for row in db.voicechats.find():
+        for row in db.vchats.find():
             date = row['date']
             if date_diff_secs(date, now) > 1:
                 to_delete.append(row['_id'])
-        db.voicechats.delete_many({'_id': {'$in' : to_delete}})
+        db.vchats.delete_many({'_id': {'$in' : to_delete}})
 
     except Exception as e:
         print(e)
@@ -494,7 +492,7 @@ def clear_voicechat():
 def check_voicechat(responser):
     query = {'mail': responser}
     projection = {'_id': 0, 'name': 1, 'token': 1}
-    channel = db.voicechats.find_one(query, projection)
+    channel = db.vchats.find_one(query, projection)
     if channel is None:
         return jsonify(None)
     else:

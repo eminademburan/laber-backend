@@ -12,7 +12,7 @@ from voicechat.src.RtcTokenBuilder import RtcTokenBuilder, Role_Attendee
 appID = "c1d043e419a6463f8c8775b42807aba7"
 appCertificate = "6dab7fbb14144a0d8be182e3ed4a91bf"
 uid = 0
-expireTimeInSeconds = 300
+expireTimeInSeconds = 1000
 currentTimestamp = int(time.time())
 privilegeExpiredTs = currentTimestamp + expireTimeInSeconds
 
