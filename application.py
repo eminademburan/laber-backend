@@ -497,19 +497,30 @@ def change_metric_type_from_obj_to_lst(all_task_answers):
 def add_response():
     data = request.json
     try:
-
         query = {'status': "Waiting", 'tweet_id': data["tweet_id"], 'responser': data["mail"], 'task_id' : data["task_id"]}
         if db.answers.find_one(query) is None:
             return jsonify(message="failed")
         else:
-            if len(data["answers"]) == 0:
+            query2 = { "_id" : data["task_id"]}
+            result = db.tasks.find_one(query2)
+
+            sum = 0
+            if result is not None:
+                sum = len(result["scalarMetrics"]) + len(result["nonScalarMetrics"])
+
+            if len(data["answers"]) == 0 or sum != len(data["answers"]):
                 return jsonify(message="true")
-            query = {'tweet_id': data["tweet_id"], 'responser': data["mail"], 'task_id' : data["task_id"]}
+            for data2 in data["answers"]:
+                if data2 is None:
+                    return jsonify(message="true")
+            query = {'tweet_id': data["tweet_id"], 'responser': data["mail"], 'task_id': data["task_id"]}
             new_values = {"$set": {'answers': data["answers"], 'status': 'Answered', 'answerDate': data["date"]}}
             db.answers.update_one(query, new_values)
+
             return jsonify(message="true")
     except:
         return jsonify(message="failed")
+
 
 
 # creates an agora channel with given name
@@ -541,8 +552,8 @@ def clear_voicechat():
 
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=60)
-scheduler.add_job(func=clear_voicechat, trigger="interval", seconds=5)
+scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=15)
+#scheduler.add_job(func=clear_voicechat, trigger="interval", seconds=5)
 scheduler.start()
 
 
