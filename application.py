@@ -17,7 +17,6 @@ import time
 import atexit
 import random
 from datetime import timedelta
-
 import voicechat
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -164,6 +163,35 @@ def get_customer():
 #             return jsonify(True)
 #     except:
 #         return jsonify(None)
+
+@application.route("/get_answers_in_json/<string:taskName>")
+@jwt_required()
+@cross_origin()
+def get_answers_in_json(taskName):
+    result = []
+    print("in get answers in json: ", taskName)
+
+    task_from_database = db.tasks.find_one({'_id': taskName})
+    if task_from_database is not None:
+        result.append(task_from_database)
+
+    answers_to_task = db.answers.find({'task_id': taskName, 'status': 'Answered'})
+    is_any_answer = False
+    if answers_to_task is not None:
+        is_any_answer = True
+
+
+    for answer in answers_to_task:
+        result.append(answer)
+    print("result: ", result)
+    print(task_from_database)
+
+
+    if is_any_answer:
+        return jsonify(dict(result))
+    else:
+        return jsonify(None)
+
 
 @application.route("/add_task", methods=['POST'])
 @jwt_required()
