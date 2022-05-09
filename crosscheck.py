@@ -110,7 +110,7 @@ def get_response_rate(tweet_id):
 def voicechat_exists(tweet_id):
     query = {'tweet_id': tweet_id}
     projection = {'tweet_id': 1}
-    voicechats = db.voice_chats.find_one(query, projection)
+    voicechats = db.vchats.find_one(query, projection)
 
     return voicechats is not None
 
@@ -161,11 +161,11 @@ def assign_voicechat(mails, tweet_id, metric_id):
     channel_name = str(random.randint(0, int(1e10)) + int(1e10))
     # check if channel name exists
     for mail in mails:
-        if db.voice_chats.find_one({"mail": mail}) is not None:
+        if db.vchats.find_one({"mail": mail}) is not None:
             return
-    if db.voice_chats.find_one({"name": channel_name}) is not None:
+    if db.vchats.find_one({"name": channel_name}) is not None:
         return
     token = generate_token(channel_name)
     dt = datetime.now()
     q_list = [{'name': channel_name, 'tweet_id': tweet_id, 'metric_id': metric_id, 'token': token, 'mail': mail, 'date': dt} for mail in mails]
-    db.voice_chats.insert_many(q_list)
+    db.vchats.insert_many(q_list)
