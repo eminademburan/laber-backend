@@ -282,12 +282,11 @@ def get_rawData():
         return jsonify(message="failed")
 
 @application.route("/get_answers_in_json", methods=['POST'])
-@jwt_required()
 @cross_origin()
 def get_answers_in_json():
     try:
         data = request.json
-
+        print(data)
         query = {"task_id": data["taskName"], "status" : "Answered"}
         query2 = {"_id": data["taskName"]}
         projection = { "_id" :0, "owner_id" : 0, "status" : 0 }
