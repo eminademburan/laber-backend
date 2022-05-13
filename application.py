@@ -16,8 +16,9 @@ import scrapper
 import time
 import atexit
 import random
-from datetime import timedelta
 import voicechat
+
+from apscheduler.schedulers.background import BackgroundScheduler
 
 from utils import date_diff_secs
 
@@ -26,9 +27,9 @@ from voicechat.tokenizer import generate_token
 application = Flask(__name__)
 load_dotenv()
 application.config["JWT_SECRET_KEY"] = os.getenv('JWT_SECRET_KEY')
-application.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
+#application.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
 jwt = JWTManager(application)
-mongo = PyMongo(application, uri="mongodb+srv://aademburan:proje1234@cluster0.9k20l.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
+mongo = PyMongo(application, uri="mongodb+srv://ademburan:proje1234@cluster0.9k20l.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
 db = mongo.db
 CORS(application)
 api = Api(application)
@@ -547,6 +548,12 @@ def clear_voicechat():
 
     except Exception as e:
         print(e)
+
+
+scheduler = BackgroundScheduler()
+scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=15)
+#scheduler.add_job(func=clear_voicechat, trigger="interval", seconds=5)
+scheduler.start()
 
 
 # checks if there is a pending voicechat for a given responser, if there is returns channel name and token
