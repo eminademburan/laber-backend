@@ -272,6 +272,18 @@ def add_tweet(tweet_id, text, noOfLike, tweetGroup):
         return jsonify(message="failed")
 
 
+@application.route("/get_jsondata", methods=['POST'])
+@cross_origin()
+def get_rawData():
+    data = request.json
+    try:
+        query = { "task_id" : data["taskName"]}
+        query2 = { "_id" : data["taskName"] }
+        db.answers.find({'_id': tweet_id, 'text': text, 'likes': noOfLike, 'owner_id': tweetGroup})
+        return jsonify(message="success")
+    except:
+        return jsonify(message="failed")
+
 @application.route("/get_answers_in_json", methods=['POST'])
 @jwt_required()
 @cross_origin()
