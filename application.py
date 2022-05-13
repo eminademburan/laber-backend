@@ -19,7 +19,7 @@ import random
 from datetime import timedelta
 import voicechat
 
-from apscheduler.schedulers.background import BackgroundSpcheduler
+from apscheduler.schedulers.background import BackgroundScheduler
 
 from utils import date_diff_secs
 
