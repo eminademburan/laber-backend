@@ -20,7 +20,7 @@ python-dotenv = "*"
 numpy = "*"
 scipy = "*"
 flask-pymongo = "*"
-
+backports.zoneinfo = "*"
 
 [dev-packages]
 
