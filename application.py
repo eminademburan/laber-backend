@@ -19,7 +19,6 @@ import random
 from datetime import timedelta
 import voicechat
 
-from apscheduler.schedulers.background import BackgroundScheduler
 
 from utils import date_diff_secs
 
@@ -272,17 +271,17 @@ def add_tweet(tweet_id, text, noOfLike, tweetGroup):
         return jsonify(message="failed")
 
 
-@application.route("/get_jsondata", methods=['POST'])
-@cross_origin()
-def get_rawData():
-    data = request.json
-    try:
-        query = { "task_id" : data["taskName"]}
-        query2 = { "_id" : data["taskName"] }
-        db.answers.find({'_id': tweet_id, 'text': text, 'likes': noOfLike, 'owner_id': tweetGroup})
-        return jsonify(message="success")
-    except:
-        return jsonify(message="failed")
+# @application.route("/get_jsondata", methods=['POST'])
+# @cross_origin()
+# def get_rawData():
+#     data = request.json
+#     try:
+#         query = { "task_id" : data["taskName"]}
+#         query2 = { "_id" : data["taskName"] }
+#         db.answers.find({'_id': tweet_id, 'text': text, 'likes': noOfLike, 'owner_id': tweetGroup})
+#         return jsonify(message="success")
+#     except:
+#         return jsonify(message="failed")
 
 @application.route("/get_answers_in_json", methods=['POST'])
 @jwt_required()
@@ -550,10 +549,10 @@ def clear_voicechat():
         print(e)
 
 
-scheduler = BackgroundScheduler()
-scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=15)
-#scheduler.add_job(func=clear_voicechat, trigger="interval", seconds=5)
-scheduler.start()
+# scheduler = BackgroundScheduler()
+# scheduler.add_job(func=auto_distribute_task, trigger="interval", seconds=15)
+# #scheduler.add_job(func=clear_voicechat, trigger="interval", seconds=5)
+# scheduler.start()
 
 
 # checks if there is a pending voicechat for a given responser, if there is returns channel name and token
